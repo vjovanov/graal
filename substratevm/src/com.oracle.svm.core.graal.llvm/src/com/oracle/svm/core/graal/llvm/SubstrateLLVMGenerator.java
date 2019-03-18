@@ -38,6 +38,7 @@ import org.graalvm.util.GuardedAnnotationAccess;
 import com.oracle.svm.core.SubstrateUtil;
 import com.oracle.svm.core.annotate.Uninterruptible;
 import com.oracle.svm.core.graal.code.SubstrateLIRGenerator;
+import com.oracle.svm.core.graal.meta.SubstrateRegisterConfig;
 import com.oracle.svm.core.snippets.SnippetRuntime;
 import com.oracle.svm.hosted.meta.HostedType;
 
@@ -98,5 +99,10 @@ public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLI
     @Override
     protected JavaKind getTypeKind(ResolvedJavaType type) {
         return ((HostedType) type).getStorageKind();
+    }
+
+    @Override
+    public SubstrateRegisterConfig getRegisterConfig() {
+        return (SubstrateRegisterConfig) super.getRegisterConfig();
     }
 }
