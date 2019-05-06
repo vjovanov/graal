@@ -392,6 +392,7 @@ def svm_gate_body(args, tasks):
                 javac_image(['--output-path', svmbuild_dir()])
                 javac_command = ' '.join(javac_image_command(svmbuild_dir()))
                 helloworld(['--output-path', svmbuild_dir(), '--javac-command', javac_command])
+                helloworld(['--output-path', svmbuild_dir(), '--javac-command', javac_command, '--initialize-at-run-time'])
                 helloworld(['--output-path', svmbuild_dir(), '--shared'])  # Build and run helloworld as shared library
                 cinterfacetutorial([])
                 clinittest([])

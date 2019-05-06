@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import org.graalvm.compiler.options.OptionKey;
 import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
 
 import com.oracle.graal.pointsto.constraints.UnsupportedFeatures;
@@ -39,7 +38,6 @@ import com.oracle.graal.pointsto.meta.AnalysisType;
 import com.oracle.svm.core.option.SubstrateOptionsParser;
 import com.oracle.svm.core.util.UserError;
 import com.oracle.svm.hosted.ImageClassLoader;
-import com.oracle.svm.hosted.NativeImageGenerator;
 import com.oracle.svm.hosted.NativeImageOptions;
 import com.oracle.svm.hosted.meta.HostedType;
 
@@ -397,20 +395,12 @@ public class ConfigurableClassInitialization implements ClassInitializationSuppo
             return InitKind.BUILD_TIME;
         } else if (clazz.getTypeName().contains("$$StringConcat")) {
             return InitKind.BUILD_TIME;
+        } else if (specifiedInitKindFor(clazz) != null) {
+            return specifiedInitKindFor(clazz);
         } else {
-            ClassLoader typeClassLoader = clazz.getClassLoader();
-            if (typeClassLoader == null ||
-                            typeClassLoader == NativeImageGenerator.class.getClassLoader() ||
-                            typeClassLoader == com.sun.crypto.provider.SunJCE.class.getClassLoader() ||
-                            /* JDK 11 */
-                            typeClassLoader == OptionKey.class.getClassLoader()) {
-                return InitKind.BUILD_TIME;
-            } else if (specifiedInitKindFor(clazz) != null) {
-                return specifiedInitKindFor(clazz);
-            }
+            /* The default value. */
+            return InitKind.RUN_TIME;
         }
-
-        return InitKind.RUN_TIME;
     }
 
 }

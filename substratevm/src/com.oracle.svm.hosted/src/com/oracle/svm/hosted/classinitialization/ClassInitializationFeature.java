@@ -132,6 +132,8 @@ public class ClassInitializationFeature implements Feature {
     }
 
     public static void processClassInitializationOptions(ClassInitializationSupport initializationSupport) {
+        initializeJDKClasses(initializationSupport);
+        initializeSVMClasses(initializationSupport);
         String[] initializationInfo = Options.ClassInitialization.getValue();
         for (String infos : initializationInfo) {
             for (String info : infos.split(",")) {
@@ -145,6 +147,86 @@ public class ClassInitializationFeature implements Feature {
                 elementType.getRight().stringConsumer(initializationSupport).accept(elementType.getLeft());
             }
         }
+    }
+
+    private static void initializeSVMClasses(ClassInitializationSupport initializationSupport) {
+        initializationSupport.initializeAtBuildTime("jdk.vm.ci", "SVM classes are always initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.graalvm.collections", "SVM classes are always initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.graalvm.compiler", "SVM classes are always initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.graalvm.word", "SVM classes are always initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.graalvm.nativeimage", "SVM classes are always initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.graalvm.util", "SVM classes are always initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.oracle.svm", "SVM classes are always initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.oracle.graal", "SVM classes are always initialized at build time");
+    }
+
+    private static void initializeJDKClasses(ClassInitializationSupport initializationSupport) {
+        initializationSupport.initializeAtBuildTime("apple.security", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.jcp.xml", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("jdk.net", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.xml", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.beans", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.crypto", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.naming", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.management", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.proxy", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.jarsigner", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.java.accessibility", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.javadoc", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.jdi", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.net", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.nio", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.security", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.source", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("com.sun.tools", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("sun.net", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("sun.nio", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("sun.misc", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("sun.util", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("sun.reflect", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("sun.security", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("sun.text", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.applet", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.awt", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.beans", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.io", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.lang", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.math", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.net", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.nio", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.rmi", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.security", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.sql", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.text", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.time", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("java.util", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.accessibility", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.activation", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.activity", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.annotation", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.crypto", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.imageio", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.jws", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.lang.model", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.management", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.naming", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.net", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.print", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.rmi", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.script", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.security", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.validation", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.sound.midi", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.sound.sampled", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.sql", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.swing", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.tools", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.transaction", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("javax.xml", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.ietf.jgss", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.omg", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.w3c.dom", "JDK is initialized at build time");
+        initializationSupport.initializeAtBuildTime("org.xml.sax", "JDK is initialized at build time");
     }
 
     @Override
