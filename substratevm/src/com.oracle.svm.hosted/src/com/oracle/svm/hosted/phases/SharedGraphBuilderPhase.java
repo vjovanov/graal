@@ -36,8 +36,8 @@ import org.graalvm.compiler.nodes.graphbuilderconf.GraphBuilderConfiguration;
 import org.graalvm.compiler.nodes.graphbuilderconf.IntrinsicContext;
 import org.graalvm.compiler.nodes.graphbuilderconf.InvocationPlugins.InvocationPluginReceiver;
 import org.graalvm.compiler.nodes.java.MethodCallTargetNode;
+import org.graalvm.compiler.nodes.spi.CoreProviders;
 import org.graalvm.compiler.phases.OptimisticOptimizations;
-import org.graalvm.compiler.phases.util.Providers;
 import org.graalvm.compiler.word.WordTypes;
 
 import com.oracle.graal.pointsto.constraints.UnresolvedElementException;
@@ -60,21 +60,31 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 public abstract class SharedGraphBuilderPhase extends GraphBuilderPhase.Instance {
     final WordTypes wordTypes;
+    protected final SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData;
 
-    public SharedGraphBuilderPhase(Providers providers, GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts, IntrinsicContext initialIntrinsicContext,
-                    WordTypes wordTypes) {
+    public SharedGraphBuilderPhase(CoreProviders providers, GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts, IntrinsicContext initialIntrinsicContext,
+                    WordTypes wordTypes, SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData) {
         super(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext);
         this.wordTypes = wordTypes;
+        this.inlineInvocationData = inlineInvocationData;
     }
 
     public abstract static class SharedBytecodeParser extends BytecodeParser {
 
         private final boolean explicitExceptionEdges;
+        protected final SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData;
+
+        protected SubstrateInlineDuringParsingPlugin.InvocationResultInline inlineDuringParsingState;
 
         protected SharedBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI,
-                        IntrinsicContext intrinsicContext, boolean explicitExceptionEdges) {
+                        IntrinsicContext intrinsicContext, boolean explicitExceptionEdges, SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData) {
             super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext);
             this.explicitExceptionEdges = explicitExceptionEdges;
+            this.inlineInvocationData = inlineInvocationData;
+        }
+
+        public GraphBuilderConfiguration getGraphBuilderConfig() {
+            return graphBuilderConfig;
         }
 
         @Override

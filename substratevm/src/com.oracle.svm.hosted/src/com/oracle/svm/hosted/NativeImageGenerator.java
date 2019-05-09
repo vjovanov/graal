@@ -253,6 +253,7 @@ import com.oracle.svm.hosted.phases.ConstantFoldLoadFieldPlugin;
 import com.oracle.svm.hosted.phases.InjectedAccessorsPlugin;
 import com.oracle.svm.hosted.phases.IntrinsifyMethodHandlesInvocationPlugin;
 import com.oracle.svm.hosted.phases.SubstrateClassInitializationPlugin;
+import com.oracle.svm.hosted.phases.SubstrateInlineDuringParsingPlugin;
 import com.oracle.svm.hosted.phases.VerifyDeoptFrameStatesLIRPhase;
 import com.oracle.svm.hosted.phases.VerifyNoGuardsPhase;
 import com.oracle.svm.hosted.snippets.DeoptHostedSnippets;
@@ -1093,6 +1094,9 @@ public class NativeImageGenerator {
 
         SubstrateReplacements replacements = (SubstrateReplacements) providers.getReplacements();
         plugins.appendInlineInvokePlugin(replacements);
+        if (SubstrateInlineDuringParsingPlugin.Options.InlineBeforeAnalysis.getValue()) {
+            plugins.appendInlineInvokePlugin(new SubstrateInlineDuringParsingPlugin(analysis, providers));
+        }
 
         plugins.appendNodePlugin(new IntrinsifyMethodHandlesInvocationPlugin(providers, aUniverse, hUniverse));
         plugins.appendNodePlugin(new DeletedFieldsPlugin());

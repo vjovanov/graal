@@ -36,6 +36,7 @@ import org.graalvm.compiler.nodes.AbstractBeginNode;
 import org.graalvm.compiler.nodes.CallTargetNode;
 import org.graalvm.compiler.nodes.DeoptimizeNode;
 import org.graalvm.compiler.nodes.FixedWithNextNode;
+import org.graalvm.compiler.nodes.Invoke;
 import org.graalvm.compiler.nodes.InvokeWithExceptionNode;
 import org.graalvm.compiler.nodes.KillingBeginNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
@@ -68,20 +69,21 @@ public class SubstrateGraphBuilderPhase extends SharedGraphBuilderPhase {
 
     public SubstrateGraphBuilderPhase(Providers providers,
                     GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts, IntrinsicContext initialIntrinsicContext, WordTypes wordTypes,
-                    Predicate<ResolvedJavaMethod> deoptimizeOnExceptionPredicate) {
-        super(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, wordTypes);
+                    Predicate<ResolvedJavaMethod> deoptimizeOnExceptionPredicate, SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData) {
+        super(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, wordTypes, inlineInvocationData);
         this.deoptimizeOnExceptionPredicate = deoptimizeOnExceptionPredicate != null ? deoptimizeOnExceptionPredicate : (method -> false);
     }
 
     @Override
     protected BytecodeParser createBytecodeParser(StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI, IntrinsicContext intrinsicContext) {
-        return new SubstrateBytecodeParser(this, graph, parent, method, entryBCI, intrinsicContext, false);
+        return new SubstrateBytecodeParser(this, graph, parent, method, entryBCI, intrinsicContext, false, inlineInvocationData);
     }
 
     public static class SubstrateBytecodeParser extends SharedBytecodeParser {
+
         public SubstrateBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI,
-                        IntrinsicContext intrinsicContext, boolean explicitExceptionEdges) {
-            super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext, explicitExceptionEdges);
+                        IntrinsicContext intrinsicContext, boolean explicitExceptionEdges, SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData) {
+            super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext, explicitExceptionEdges, inlineInvocationData);
         }
 
         @Override
@@ -155,6 +157,14 @@ public class SubstrateGraphBuilderPhase extends SharedGraphBuilderPhase {
             invoke.setNext(beginNode);
             lastInstr = beginNode;
             return invoke;
+        }
+
+        @Override
+        protected Invoke createNonInlinedInvoke(ExceptionEdgeAction exceptionEdge, int invokeBci, CallTargetNode callTarget, JavaKind resultType) {
+            if (inlineInvocationData != null) {
+                inlineInvocationData.onCreateInvoke(this, invokeBci, false, callTarget.targetMethod());
+            }
+            return super.createNonInlinedInvoke(exceptionEdge, invokeBci, callTarget, resultType);
         }
 
     }

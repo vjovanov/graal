@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.graalvm.compiler.nodes.FrameState;
 import org.graalvm.compiler.nodes.Invoke;
 import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.ImageSingletons;
@@ -171,10 +172,22 @@ public class RestrictHeapAccessCalleesImpl implements RestrictHeapAccessCallees 
                     access = callerAccess;
                 }
             }
-            if (access == Access.NO_ALLOCATION && assertionErrorConstructorList != null && assertionErrorConstructorList.contains(callee)) {
-                /* Ignore AssertionError allocations: ImplicitExceptionsPlugin will replace them */
-                return VisitResult.CUT;
+            if (access == Access.NO_ALLOCATION && invoke != null) {
+                for (FrameState state = invoke.stateAfter(); state != null; state = state.outerFrameState()) {
+                    if (assertionErrorConstructorList.contains(state.getMethod())) {
+                        /*
+                         * Ignore AssertionError allocations: ImplicitExceptionsPlugin will replace
+                         * them
+                         */
+                        return VisitResult.CUT;
+                    }
+                }
             }
+// if (access == Access.NO_ALLOCATION && assertionErrorConstructorList != null &&
+// assertionErrorConstructorList.contains(callee)) {
+// /* Ignore AssertionError allocations: ImplicitExceptionsPlugin will replace them */
+// return VisitResult.CUT;
+// }
             RestrictionInfo restrictionInfo = calleeToCallerMap.get(callee);
             if (restrictionInfo != null && !access.isMoreRestrictiveThan(restrictionInfo.getAccess())) {
                 /* Earlier traversal with same or higher level of restriction, so stop here. */

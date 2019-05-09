@@ -55,24 +55,27 @@ import org.graalvm.compiler.word.WordTypes;
 import com.oracle.svm.core.code.FrameInfoEncoder;
 import com.oracle.svm.core.graal.nodes.DeoptEntryNode;
 import com.oracle.svm.core.graal.nodes.DeoptProxyAnchorNode;
+import com.oracle.svm.core.util.VMError;
 import com.oracle.svm.hosted.meta.HostedMethod;
 import com.oracle.svm.hosted.nodes.DeoptProxyNode;
 import com.oracle.svm.hosted.nodes.SubstrateMethodCallTargetNode;
 import com.oracle.svm.hosted.phases.SubstrateGraphBuilderPhase.SubstrateBytecodeParser;
 
+import jdk.vm.ci.meta.JavaKind;
+import jdk.vm.ci.meta.JavaType;
 import jdk.vm.ci.meta.JavaTypeProfile;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 public class HostedGraphBuilderPhase extends SubstrateGraphBuilderPhase {
 
     public HostedGraphBuilderPhase(Providers providers, GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts, IntrinsicContext initialIntrinsicContext,
-                    WordTypes wordTypes) {
-        super(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, wordTypes, null);
+                    WordTypes wordTypes, SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData) {
+        super(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, wordTypes, null, inlineInvocationData);
     }
 
     @Override
     protected BytecodeParser createBytecodeParser(StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI, IntrinsicContext intrinsicContext) {
-        return new HostedBytecodeParser(this, graph, parent, method, entryBCI, intrinsicContext);
+        return new HostedBytecodeParser(this, graph, parent, method, entryBCI, intrinsicContext, inlineInvocationData);
     }
 }
 
@@ -83,8 +86,9 @@ class HostedBytecodeParser extends SubstrateBytecodeParser {
     private int currentDeoptIndex;
     private Map<Long, DeoptProxyAnchorNode> deoptEntries = new HashMap<>();
 
-    HostedBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI, IntrinsicContext intrinsicContext) {
-        super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext, true);
+    HostedBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI, IntrinsicContext intrinsicContext,
+                    SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData) {
+        super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext, true, inlineInvocationData);
     }
 
     @Override
@@ -126,8 +130,20 @@ class HostedBytecodeParser extends SubstrateBytecodeParser {
     }
 
     @Override
+    protected Invoke createNonInlinedInvoke(ExceptionEdgeAction exceptionEdge, int invokeBci, ValueNode[] invokeArgs, ResolvedJavaMethod targetMethod,
+                    InvokeKind invokeKind, JavaKind resultType, JavaType returnType, JavaTypeProfile profile) {
+
+        return super.createNonInlinedInvoke(exceptionEdge, invokeBci, invokeArgs, targetMethod, invokeKind, resultType, returnType, profile);
+    }
+
+    @Override
     public MethodCallTargetNode createMethodCallTarget(InvokeKind invokeKind, ResolvedJavaMethod targetMethod, ValueNode[] args, StampPair returnStamp, JavaTypeProfile profile) {
-        return new SubstrateMethodCallTargetNode(invokeKind, targetMethod, args, returnStamp, getMethod().getProfilingInfo(), bci());
+        HostedBytecodeParser outermostScope = this;
+        while (outermostScope.getParent() != null) {
+            outermostScope = (HostedBytecodeParser) outermostScope.getParent();
+        }
+
+        return new SubstrateMethodCallTargetNode(invokeKind, targetMethod, args, returnStamp, outermostScope.getMethod().getProfilingInfo(), outermostScope.bci());
     }
 
     private void insertProxies(FixedNode deoptTarget, FrameStateBuilder state) {
@@ -168,8 +184,9 @@ class HostedBytecodeParser extends SubstrateBytecodeParser {
 
     @Override
     protected void parseAndInlineCallee(ResolvedJavaMethod targetMethod, ValueNode[] args, IntrinsicContext calleeIntrinsicContext) {
-        assert calleeIntrinsicContext != null : "only inlining replacements";
         if (getMethod().compilationInfo.isDeoptEntry(bci(), false, false)) {
+            VMError.guarantee(calleeIntrinsicContext != null, "only for inlining of replacements");
+
             /*
              * Replacements use the frame state before the invoke for all nodes that need a state,
              * i.e., we want to re-execute the whole replacement in case of deoptimization.

@@ -42,21 +42,13 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 public final class SubstrateMethodCallTargetNode extends MethodCallTargetNode {
     public static final NodeClass<SubstrateMethodCallTargetNode> TYPE = NodeClass.create(SubstrateMethodCallTargetNode.class);
 
-    protected final StaticAnalysisResults staticAnalysisResults;
-    protected final int bci;
+    private final StaticAnalysisResults staticAnalysisResults;
+    private final int bci;
 
     public SubstrateMethodCallTargetNode(InvokeKind invokeKind, ResolvedJavaMethod targetMethod, ValueNode[] arguments, StampPair returnStamp, StaticAnalysisResults staticAnalysisResults, int bci) {
         super(TYPE, invokeKind, targetMethod, arguments, returnStamp, staticAnalysisResults.getTypeProfile(bci));
         this.staticAnalysisResults = staticAnalysisResults;
         this.bci = bci;
-    }
-
-    public StaticAnalysisResults getStaticAnalysisResults() {
-        return staticAnalysisResults;
-    }
-
-    public int getBci() {
-        return bci;
     }
 
     public JavaTypeProfile getTypeProfile() {

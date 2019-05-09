@@ -327,7 +327,7 @@ public abstract class PartialEvaluator {
         }
 
         @Override
-        public void notifyAfterInline(ResolvedJavaMethod inlinedTargetMethod) {
+        public void notifyAfterInline(GraphBuilderContext b, ResolvedJavaMethod inlinedTargetMethod) {
             if (inlinedTargetMethod.equals(callInlinedMethod)) {
                 inlining.pop();
             }

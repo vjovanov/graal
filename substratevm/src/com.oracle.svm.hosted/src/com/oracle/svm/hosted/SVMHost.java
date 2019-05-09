@@ -43,6 +43,7 @@ import org.graalvm.compiler.phases.OptimisticOptimizations;
 import org.graalvm.nativeimage.hosted.Feature.DuringAnalysisAccess;
 import org.graalvm.nativeimage.c.function.RelocatedPointer;
 
+import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.api.HostVM;
 import com.oracle.graal.pointsto.api.PointstoOptions;
 import com.oracle.graal.pointsto.constraints.UnsupportedFeatureException;
@@ -66,6 +67,7 @@ import com.oracle.svm.hosted.c.GraalAccess;
 import com.oracle.svm.hosted.classinitialization.ClassInitializationSupport;
 import com.oracle.svm.hosted.meta.HostedType;
 import com.oracle.svm.hosted.phases.AnalysisGraphBuilderPhase;
+import com.oracle.svm.hosted.phases.SubstrateInlineDuringParsingPlugin;
 import com.oracle.svm.hosted.substitute.UnsafeAutomaticSubstitutionProcessor;
 
 import jdk.vm.ci.meta.ResolvedJavaField;
@@ -83,6 +85,7 @@ public final class SVMHost implements HostVM {
     private final HostedStringDeduplication stringTable;
     private final UnsafeAutomaticSubstitutionProcessor automaticSubstitutions;
     private final List<BiConsumer<DuringAnalysisAccess, Class<?>>> classReachabilityListeners;
+    private final SubstrateInlineDuringParsingPlugin.InvocationData inlineInvocationData;
 
     public SVMHost(OptionValues options, ClassLoader classLoader, ClassInitializationSupport classInitializationSupport, UnsafeAutomaticSubstitutionProcessor automaticSubstitutions) {
         this.options = options;
@@ -92,6 +95,11 @@ public final class SVMHost implements HostVM {
         this.classReachabilityListeners = new ArrayList<>();
         this.forbiddenTypes = setupForbiddenTypes(options);
         this.automaticSubstitutions = automaticSubstitutions;
+        this.inlineInvocationData = new SubstrateInlineDuringParsingPlugin.InvocationData();
+    }
+
+    public SubstrateInlineDuringParsingPlugin.InvocationData getInlineInvocationData() {
+        return inlineInvocationData;
     }
 
     private static Map<String, EnumSet<AnalysisType.UsageKind>> setupForbiddenTypes(OptionValues options) {
@@ -133,8 +141,9 @@ public final class SVMHost implements HostVM {
     }
 
     @Override
-    public Instance createGraphBuilderPhase(HostedProviders providers, GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts, IntrinsicContext initialIntrinsicContext) {
-        return new AnalysisGraphBuilderPhase(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, providers.getWordTypes());
+    public Instance createGraphBuilderPhase(BigBang bb, HostedProviders providers, GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts,
+                    IntrinsicContext initialIntrinsicContext) {
+        return new AnalysisGraphBuilderPhase(bb, providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, providers.getWordTypes(), inlineInvocationData);
     }
 
     @Override
