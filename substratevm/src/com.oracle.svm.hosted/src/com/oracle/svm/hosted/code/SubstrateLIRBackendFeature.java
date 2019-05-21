@@ -52,6 +52,6 @@ class SubstrateLIRBackendFeature implements Feature {
                 return new LIRNativeImageCodeCache(compileQueue.getCompilations(), heap);
             }
         });
-        ImageSingletons.add(SnippetRuntime.ExceptionStackFrameVisitor.class, new SnippetRuntime.ExceptionStackFrameVisitor());
+        ImageSingletons.add(SnippetRuntime.ExceptionUnwind.class, new SnippetRuntime.ExceptionUnwind());
     }
 }
