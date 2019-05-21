@@ -24,12 +24,6 @@
  */
 package com.oracle.svm.core.graal.llvm;
 
-import static org.graalvm.compiler.core.llvm.LLVMUtils.getVal;
-
-import com.oracle.svm.core.SubstrateOptions;
-import com.oracle.svm.core.graal.code.SubstrateCallingConvention;
-import com.oracle.svm.core.meta.SharedMethod;
-import jdk.vm.ci.code.CallingConvention;
 import org.bytedeco.javacpp.LLVM.LLVMContextRef;
 import org.bytedeco.javacpp.LLVM.LLVMValueRef;
 import org.graalvm.compiler.core.common.spi.ForeignCallDescriptor;
@@ -40,18 +34,24 @@ import org.graalvm.compiler.core.llvm.LLVMUtils.LLVMKindTool;
 import org.graalvm.compiler.phases.util.Providers;
 import org.graalvm.util.GuardedAnnotationAccess;
 
+import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.SubstrateUtil;
 import com.oracle.svm.core.annotate.Uninterruptible;
+import com.oracle.svm.core.graal.code.SubstrateCallingConvention;
 import com.oracle.svm.core.graal.code.SubstrateLIRGenerator;
 import com.oracle.svm.core.graal.meta.SubstrateRegisterConfig;
+import com.oracle.svm.core.meta.SharedMethod;
 import com.oracle.svm.core.snippets.SnippetRuntime;
 import com.oracle.svm.hosted.meta.HostedType;
 
+import jdk.vm.ci.code.CallingConvention;
 import jdk.vm.ci.meta.AllocatableValue;
 import jdk.vm.ci.meta.JavaKind;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 import jdk.vm.ci.meta.ResolvedJavaType;
 import jdk.vm.ci.meta.Value;
+
+import static com.oracle.svm.core.util.VMError.unimplemented;
 
 public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLIRGenerator {
     private final boolean isEntryPoint;
@@ -77,17 +77,8 @@ public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLI
 
     @Override
     public void emitFarReturn(AllocatableValue result, Value sp, Value setjmpBuffer) {
-        LLVMValueRef exceptionHolder = builder.getUniqueGlobal("__svm_exception_object", builder.objectType(), true);
-        LLVMValueRef exceptionObject = getVal(result);
-        builder.buildStore(exceptionObject, exceptionHolder);
-
-        LLVMValueRef buffer = builder.buildIntToPtr(getVal(setjmpBuffer), builder.pointerType(builder.arrayType(builder.longType(), 5), false));
-
-        LLVMValueRef spAddr = builder.buildGEP(buffer, builder.constantInt(0), builder.constantInt(2));
-        builder.buildStore(getVal(sp), spAddr);
-
-        builder.buildLongjmp(builder.buildBitcast(buffer, builder.rawPointerType()));
-        builder.buildUnreachable();
+        /* Exception unwinding is handled by libunwind */
+        throw unimplemented();
     }
 
     @Override
