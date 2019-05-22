@@ -61,13 +61,7 @@ public enum InitKind {
 
     Consumer<String> stringConsumer(ClassInitializationSupport support) {
         if (this == RUN_TIME) {
-            return name -> {
-                if ("".equals(name)) {
-                    throw UserError.abort("Initializing the whole hierarchy at run time is currently not supported. Initialize individual packages from the application with: " +
-                                    SubstrateOptionsParser.commandArgument(ClassInitializationFeature.Options.ClassInitialization, "<package>", "initialize-at-run-time"));
-                }
-                support.initializeAtRunTime(name, "from the command line");
-            };
+            return name -> support.initializeAtRunTime(name, "from the command line");
         } else if (this == RERUN) {
             return name -> support.rerunInitialization(name, "from the command line");
         } else {
