@@ -462,7 +462,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
 
             List<String> cmd = new ArrayList<>();
             if (SubstrateOptions.MultiThreaded.getValue() && arch == LLVMUtils.Target.AArch64) {
-                cmd.add(customLLVMRoot + "/llc-aarch64");
+                cmd.add(customLLVMRoot + "/llc-aarch64-working");
             } else {
                 cmd.add("llc");
             }
@@ -503,6 +503,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         break;
                     case AArch64:
                         cmd.add("-march=grarch64");
+                        cmd.add("-disable-fp-elim");
                         break;
                 }
                 cmd.add("-mattr=graal-thread-pointer");
@@ -514,6 +515,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         break;
                     case AArch64:
                         cmd.add("-march=arm64");
+                        cmd.add("-disable-fp-elim");
                         break;
                 }
             }
