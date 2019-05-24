@@ -90,6 +90,7 @@ import org.graalvm.compiler.nodes.calc.IntegerTestNode;
 import org.graalvm.compiler.nodes.calc.IsNullNode;
 import org.graalvm.compiler.nodes.cfg.Block;
 import org.graalvm.compiler.nodes.extended.SwitchNode;
+import org.graalvm.compiler.nodes.java.StackParameterNode;
 import org.graalvm.compiler.nodes.java.TypeSwitchNode;
 import org.graalvm.compiler.nodes.spi.LIRLowerable;
 import org.graalvm.compiler.nodes.spi.NodeLIRBuilderTool;
@@ -147,6 +148,14 @@ public class NodeLLVMBuilder implements NodeLIRBuilderTool {
 
             for (ParameterNode param : graph.getNodes(ParameterNode.TYPE)) {
                 LLVMValueRef paramValue = builder.getParam(param.index());
+                setResult(param, paramValue);
+            }
+
+            LLVMValueRef varargsBase = builder.buildGEP(builder.buildFrameAddress(builder.constantInt(0)), builder.constantInt(16));
+            for (StackParameterNode param : graph.getNodes(StackParameterNode.TYPE)) {
+                LLVMValueRef paramAddress = builder.buildGEP(varargsBase, builder.constantInt(param.getIndex() * 8));
+                LLVMTypeRef paramType = gen.getLLVMType(param.stamp(NodeView.DEFAULT));
+                LLVMValueRef paramValue = builder.buildLoad(paramAddress, paramType);
                 setResult(param, paramValue);
             }
 
