@@ -59,8 +59,10 @@ import org.graalvm.compiler.nodes.extended.BranchProbabilityNode;
 import org.graalvm.compiler.nodes.java.ExceptionObjectNode;
 import org.graalvm.compiler.nodes.java.InstanceOfNode;
 import org.graalvm.compiler.nodes.java.NewInstanceNode;
+import org.graalvm.compiler.nodes.java.StackParameterNode;
 import org.graalvm.compiler.nodes.memory.HeapAccess.BarrierType;
 import org.graalvm.compiler.nodes.memory.address.OffsetAddressNode;
+import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.c.struct.SizeOf;
 import org.graalvm.word.LocationIdentity;
 import org.graalvm.word.WordBase;
@@ -322,7 +324,25 @@ public final class JNIJavaCallWrapperMethod extends JNIGeneratedMethod {
         }
         javaIndex += metaAccess.lookupJavaType(JNIMethodId.class).getJavaKind().getSlotCount();
         int count = invokeSignature.getParameterCount(false);
-        if (callVariant == CallVariant.VARARGS) {
+        if (callVariant == CallVariant.VARARGS && Platform.includedIn(Platform.AArch64.class)) {
+            /* TODO this is probably iOS-specific */
+            for (int i = 0; i < count; i++) {
+                ResolvedJavaType type = (ResolvedJavaType) invokeSignature.getParameterType(i, null);
+                JavaKind kind = type.getJavaKind();
+                JavaKind loadKind = kind;
+                if (loadKind == JavaKind.Float) { // C varargs promote float to double
+                    loadKind = JavaKind.Double;
+                }
+                ValueNode value = kit.unique(new StackParameterNode(i, javaIndex, loadKind));
+                if (kind == JavaKind.Float) {
+                    value = kit.unique(new FloatConvertNode(FloatConvert.D2F, value));
+                } else if (kind.isObject()) {
+                    value = kit.unboxHandle(value);
+                }
+                args.add(Pair.create(value, type));
+                javaIndex += loadKind.getSlotCount();
+            }
+        } else if (callVariant == CallVariant.VARARGS) {
             for (int i = 0; i < count; i++) {
                 ResolvedJavaType type = (ResolvedJavaType) invokeSignature.getParameterType(i, null);
                 JavaKind kind = type.getJavaKind();
