@@ -441,9 +441,9 @@ public class NodeLLVMBuilder implements NodeLIRBuilderTool {
             LLVMBasicBlockRef successor = gen.getBlock(invokeWithExceptionNode.next());
             LLVMBasicBlockRef handler = gen.getBlock(invokeWithExceptionNode.exceptionEdge());
 
-            call = builder.buildInvoke(callee, successor, handler, patchpointId, callType, args);
+            call = builder.buildInvoke(callee, successor, handler, patchpointId, callType, callTarget.returnStamp().getTrustedStamp(), args);
         } else {
-            call = builder.buildCall(callee, patchpointId, callType, args);
+            call = builder.buildCall(callee, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind() == JavaKind.Double, args);
         }
         return call;
     }

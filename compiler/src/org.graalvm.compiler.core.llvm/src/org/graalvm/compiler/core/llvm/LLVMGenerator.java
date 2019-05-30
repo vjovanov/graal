@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
+import org.bytedeco.javacpp.LLVM;
 import org.bytedeco.javacpp.LLVM.LLVMBasicBlockRef;
 import org.bytedeco.javacpp.LLVM.LLVMTypeRef;
 import org.bytedeco.javacpp.LLVM.LLVMValueRef;
@@ -190,7 +191,12 @@ public class LLVMGenerator implements LIRGeneratorTool {
 
     private LLVMTypeRef getLLVMFunctionReturnType(ResolvedJavaMethod method) {
         ResolvedJavaType returnType = method.getSignature().getReturnType(null).resolve(null);
-        return builder.getLLVMStackType(getTypeKind(returnType));
+        if (getTypeKind(returnType) == JavaKind.Double) {
+            /* Hack for wrong code emission on Aarch64 and patchpoints. */
+            return builder.getLLVMStackType(JavaKind.Long);
+        } else {
+            return builder.getLLVMStackType(getTypeKind(returnType));
+        }
     }
 
     private LLVMTypeRef[] getLLVMFunctionArgTypes(ResolvedJavaMethod method) {
@@ -446,7 +452,7 @@ public class LLVMGenerator implements LIRGeneratorTool {
     @Override
     public Variable emitForeignCall(ForeignCallLinkage linkage, LIRFrameState state, Value... args) {
         ResolvedJavaMethod targetMethod = findForeignCallTarget(linkage.getDescriptor());
-
+        boolean isDoubleReturn = targetMethod.getSignature().getReturnKind() == JavaKind.Double;
         state.initDebugInfo(null, false);
         long patchpointId = LLVMIRBuilder.nextPatchpointId.getAndIncrement();
         generationResult.recordDirectCall(targetMethod, patchpointId, state.debugInfo());
@@ -454,7 +460,7 @@ public class LLVMGenerator implements LIRGeneratorTool {
         LLVMValueRef callee = getFunction(targetMethod);
         LLVMValueRef[] arguments = Arrays.stream(args).map(LLVMUtils::getVal).toArray(LLVMValueRef[]::new);
 
-        LLVMValueRef call = builder.buildCall(callee, patchpointId, getForeignCallCallingConvention(linkage), arguments);
+        LLVMValueRef call = builder.buildCall(callee, patchpointId, getForeignCallCallingConvention(linkage), isDoubleReturn, arguments);
         return new LLVMVariable(call);
     }
 
@@ -580,6 +586,8 @@ public class LLVMGenerator implements LIRGeneratorTool {
                     default:
                         throw shouldNotReachHere(dumpValues("invalid return type for stack int", retVal));
                 }
+            } else if (javaKind == JavaKind.Double) {
+                retVal = builder.buildBitcast(retVal, builder.longType());
             } else if (returnsEnum && javaKind == JavaKind.Long) {
                 /* Enum values are returned as long */
                 retVal = builder.buildIntToPtr(retVal, builder.rawPointerType());
@@ -1050,7 +1058,7 @@ public class LLVMGenerator implements LIRGeneratorTool {
     }
 
     @Override
-    public Value emitNextVaArg(Value vaList, JavaKind kind) {  /* TODO probably not the right list */
+    public Value emitNextVaArg(Value vaList, JavaKind kind) { /* TODO probably not the right list */
         LLVMValueRef list = builder.buildIntToPtr(getVal(vaList), builder.rawPointerType());
         LLVMValueRef arg = builder.buildVaArg(list, builder.getLLVMType(kind));
         return new LLVMVariable(arg);
