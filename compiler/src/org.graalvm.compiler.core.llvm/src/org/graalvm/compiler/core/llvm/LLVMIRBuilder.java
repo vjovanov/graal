@@ -49,6 +49,8 @@ import org.bytedeco.javacpp.LLVM.LLVMTypeRef;
 import org.bytedeco.javacpp.LLVM.LLVMValueRef;
 import org.bytedeco.javacpp.PointerPointer;
 import org.graalvm.compiler.core.common.calc.Condition;
+import org.graalvm.compiler.core.common.type.FloatStamp;
+import org.graalvm.compiler.core.common.type.Stamp;
 import org.graalvm.nativeimage.Platform;
 
 import jdk.vm.ci.code.CallingConvention;
@@ -69,7 +71,7 @@ public class LLVMIRBuilder {
     protected LLVMIRBuilder(String functionName, LLVMContextRef context, boolean trackPointers) {
         this.context = context;
         this.functionName = functionName;
-        this.trackPointers = false; //trackPointers;
+        this.trackPointers = false; // trackPointers;
 
         this.module = LLVM.LLVMModuleCreateWithNameInContext(functionName, context);
         this.builder = LLVM.LLVMCreateBuilderInContext(context);
@@ -113,9 +115,9 @@ public class LLVMIRBuilder {
         LLVM.LLVMSetGC(function, "statepoint-example");
         setLinkage(function, LLVM.LLVMExternalLinkage);
         setAttribute(function, LLVM.LLVMAttributeFunctionIndex, "noinline");
-//        if (!isEntryPoint) {
-//            setFunctionCallingConvention(function, "graal");
-//        }
+        // if (!isEntryPoint) {
+        // setFunctionCallingConvention(function, "graal");
+        // }
     }
 
     public LLVMValueRef getMainFunction() {
@@ -629,7 +631,7 @@ public class LLVMIRBuilder {
         return LLVM.LLVMBuildCall(builder, callee, new PointerPointer<>(args), args.length, DEFAULT_INSTR_NAME);
     }
 
-    LLVMValueRef buildCall(LLVMValueRef callee, long statepointId, CallingConvention.Type callType, LLVMValueRef... args) {
+    LLVMValueRef buildCall(LLVMValueRef callee, long statepointId, CallingConvention.Type callType, boolean isDoubleReturn, LLVMValueRef... args) {
         LLVMValueRef result;
         if (Platform.includedIn(Platform.AMD64.class)) {
             LLVMValueRef call;
@@ -656,14 +658,15 @@ public class LLVMIRBuilder {
 
             if (isVoidType(returnType)) {
                 // Do nothing
+            } else if (isDoubleReturn) {
+                /* Hack for wrong code emission on Aarch64 and patchpoints. */
+                result = buildBitcast(result, doubleType());
             } else if (isPointer(returnType)) {
                 result = buildIntToPtr(result, returnType);
             } else if (isIntegerType(returnType)) {
                 result = buildIntegerConvert(result, integerTypeWidth(returnType));
             } else if (isFloatType(returnType)) {
                 result = buildBitcast(buildTrunc(result, 32), returnType);
-            } else if (isDoubleType(returnType)) {
-                result = buildBitcast(result, returnType);
             } else {
                 throw shouldNotReachHere("Invalid return type");
             }
@@ -676,7 +679,7 @@ public class LLVMIRBuilder {
         return LLVM.LLVMBuildInvoke(builder, callee, new PointerPointer<>(args), args.length, successor, handler, DEFAULT_INSTR_NAME);
     }
 
-    LLVMValueRef buildInvoke(LLVMValueRef callee, LLVMBasicBlockRef successor, LLVMBasicBlockRef handler, long statepointId, CallingConvention.Type callType, LLVMValueRef... args) {
+    LLVMValueRef buildInvoke(LLVMValueRef callee, LLVMBasicBlockRef successor, LLVMBasicBlockRef handler, long statepointId, CallingConvention.Type callType, Stamp returnStamp, LLVMValueRef... args) {
         LLVMValueRef result;
         if (Platform.includedIn(Platform.AMD64.class)) {
             LLVMValueRef call;
@@ -691,7 +694,10 @@ public class LLVMIRBuilder {
                 if (isVoidType(resultType)) {
                     result = token;
                 } else {
-                    positionAtEnd(successor); /* No need to set it back as invoke is a terminator instruction */
+                    positionAtEnd(successor); /*
+                                               * No need to set it back as invoke is a terminator
+                                               * instruction
+                                               */
                     LLVMTypeRef gcResultType = functionType(resultType, tokenType());
                     result = buildIntrinsicCall("llvm.experimental.gc.result." + intrinsicType(resultType), gcResultType, token);
                 }
@@ -702,9 +708,15 @@ public class LLVMIRBuilder {
             LLVMTypeRef returnType = getReturnType(getElementType(typeOf(callee)));
             result = buildInvoke(getPatchpointIntrinsic(returnType), successor, handler, getPatchpointArgs(statepointId, callee, args));
 
-            positionAtEnd(successor); /* No need to set it back as invoke is a terminator instruction */
+            positionAtEnd(successor); /*
+                                       * No need to set it back as invoke is a terminator
+                                       * instruction
+                                       */
             if (isVoidType(returnType)) {
                 // Do nothing
+            } else if (returnStamp.getStackKind() == JavaKind.Double) {
+                /* Hack for wrong code emission on Aarch64 and patchpoints. */
+                result = buildBitcast(result, doubleType());
             } else if (isPointer(returnType)) {
                 result = buildIntToPtr(result, returnType);
             } else if (isIntegerType(returnType)) {
