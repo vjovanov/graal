@@ -58,8 +58,8 @@ public class LLVMPersonalityFunction {
             Throwable exception = SnippetRuntime.currentException.get();
             SnippetRuntime.currentException.set(null);
 
-            int exceptionRegister = 0; //__builtin_eh_return_data_regno(0);
-            int typeRegister = 1; //__builtin_eh_return_data_regno(1);
+            int exceptionRegister = 0; // __builtin_eh_return_data_regno(0);
+            int typeRegister = 1; // __builtin_eh_return_data_regno(1);
 
             _Unwind_SetGR(context, exceptionRegister, Word.objectToTrackedPointer(exception).rawValue());
             _Unwind_SetGR(context, typeRegister, 1);
