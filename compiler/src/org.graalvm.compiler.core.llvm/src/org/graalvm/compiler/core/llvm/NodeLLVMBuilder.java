@@ -37,8 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
-import jdk.vm.ci.code.Register;
-import jdk.vm.ci.code.RegisterValue;
 import org.bytedeco.javacpp.LLVM.LLVMBasicBlockRef;
 import org.bytedeco.javacpp.LLVM.LLVMTypeRef;
 import org.bytedeco.javacpp.LLVM.LLVMValueRef;
@@ -65,7 +63,6 @@ import org.graalvm.compiler.nodes.AbstractBeginNode;
 import org.graalvm.compiler.nodes.AbstractEndNode;
 import org.graalvm.compiler.nodes.AbstractMergeNode;
 import org.graalvm.compiler.nodes.BreakpointNode;
-import org.graalvm.compiler.nodes.CallTargetNode;
 import org.graalvm.compiler.nodes.DeoptimizingNode;
 import org.graalvm.compiler.nodes.DirectCallTargetNode;
 import org.graalvm.compiler.nodes.FrameState;
@@ -98,6 +95,8 @@ import org.graalvm.compiler.nodes.spi.NodeValueMap;
 
 import jdk.vm.ci.code.CallingConvention;
 import jdk.vm.ci.code.DebugInfo;
+import jdk.vm.ci.code.Register;
+import jdk.vm.ci.code.RegisterValue;
 import jdk.vm.ci.meta.JavaConstant;
 import jdk.vm.ci.meta.JavaKind;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
@@ -441,9 +440,9 @@ public class NodeLLVMBuilder implements NodeLIRBuilderTool {
             LLVMBasicBlockRef successor = gen.getBlock(invokeWithExceptionNode.next());
             LLVMBasicBlockRef handler = gen.getBlock(invokeWithExceptionNode.exceptionEdge());
 
-            call = builder.buildInvoke(callee, successor, handler, patchpointId, callType, callTarget.returnStamp().getTrustedStamp(), args);
+            call = builder.buildInvoke(callee, successor, handler, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind(), args);
         } else {
-            call = builder.buildCall(callee, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind() == JavaKind.Double, args);
+            call = builder.buildCall(callee, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind(), args);
         }
         return call;
     }

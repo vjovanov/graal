@@ -49,8 +49,6 @@ import org.bytedeco.javacpp.LLVM.LLVMTypeRef;
 import org.bytedeco.javacpp.LLVM.LLVMValueRef;
 import org.bytedeco.javacpp.PointerPointer;
 import org.graalvm.compiler.core.common.calc.Condition;
-import org.graalvm.compiler.core.common.type.FloatStamp;
-import org.graalvm.compiler.core.common.type.Stamp;
 import org.graalvm.nativeimage.Platform;
 
 import jdk.vm.ci.code.CallingConvention;
@@ -631,7 +629,7 @@ public class LLVMIRBuilder {
         return LLVM.LLVMBuildCall(builder, callee, new PointerPointer<>(args), args.length, DEFAULT_INSTR_NAME);
     }
 
-    LLVMValueRef buildCall(LLVMValueRef callee, long statepointId, CallingConvention.Type callType, boolean isDoubleReturn, LLVMValueRef... args) {
+    LLVMValueRef buildCall(LLVMValueRef callee, long statepointId, CallingConvention.Type callType, JavaKind returnKind, LLVMValueRef... args) {
         LLVMValueRef result;
         if (Platform.includedIn(Platform.AMD64.class)) {
             LLVMValueRef call;
@@ -658,15 +656,16 @@ public class LLVMIRBuilder {
 
             if (isVoidType(returnType)) {
                 // Do nothing
-            } else if (isDoubleReturn) {
+            } else if (returnKind == JavaKind.Double) {
                 /* Hack for wrong code emission on Aarch64 and patchpoints. */
                 result = buildBitcast(result, doubleType());
+            } else if (returnKind == JavaKind.Float) {
+                /* Hack for wrong code emission on Aarch64 and patchpoints. */
+                result = buildBitcast(buildTrunc(result, Float.SIZE), floatType());
             } else if (isPointer(returnType)) {
                 result = buildIntToPtr(result, returnType);
             } else if (isIntegerType(returnType)) {
                 result = buildIntegerConvert(result, integerTypeWidth(returnType));
-            } else if (isFloatType(returnType)) {
-                result = buildBitcast(buildTrunc(result, 32), returnType);
             } else {
                 throw shouldNotReachHere("Invalid return type");
             }
@@ -679,7 +678,8 @@ public class LLVMIRBuilder {
         return LLVM.LLVMBuildInvoke(builder, callee, new PointerPointer<>(args), args.length, successor, handler, DEFAULT_INSTR_NAME);
     }
 
-    LLVMValueRef buildInvoke(LLVMValueRef callee, LLVMBasicBlockRef successor, LLVMBasicBlockRef handler, long statepointId, CallingConvention.Type callType, Stamp returnStamp, LLVMValueRef... args) {
+    LLVMValueRef buildInvoke(LLVMValueRef callee, LLVMBasicBlockRef successor, LLVMBasicBlockRef handler, long statepointId, CallingConvention.Type callType, JavaKind returnKind,
+                    LLVMValueRef... args) {
         LLVMValueRef result;
         if (Platform.includedIn(Platform.AMD64.class)) {
             LLVMValueRef call;
@@ -714,15 +714,16 @@ public class LLVMIRBuilder {
                                        */
             if (isVoidType(returnType)) {
                 // Do nothing
-            } else if (returnStamp.getStackKind() == JavaKind.Double) {
+            } else if (returnKind == JavaKind.Double) {
                 /* Hack for wrong code emission on Aarch64 and patchpoints. */
                 result = buildBitcast(result, doubleType());
+            } else if (returnKind == JavaKind.Float) {
+                /* Hack for wrong code emission on Aarch64 and patchpoints. */
+                result = buildBitcast(buildTrunc(result, Float.SIZE), floatType());
             } else if (isPointer(returnType)) {
                 result = buildIntToPtr(result, returnType);
             } else if (isIntegerType(returnType)) {
                 result = buildIntegerConvert(result, integerTypeWidth(returnType));
-            } else if (isFloatType(returnType)) {
-                result = buildBitcast(buildTrunc(result, 32), returnType);
             } else if (isDoubleType(returnType)) {
                 result = buildBitcast(result, returnType);
             } else {
