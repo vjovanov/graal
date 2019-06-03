@@ -629,7 +629,7 @@ public class LLVMIRBuilder {
         return LLVM.LLVMBuildCall(builder, callee, new PointerPointer<>(args), args.length, DEFAULT_INSTR_NAME);
     }
 
-    LLVMValueRef buildCall(LLVMValueRef callee, long statepointId, CallingConvention.Type callType, JavaKind returnKind, LLVMValueRef... args) {
+    LLVMValueRef buildCall(LLVMValueRef callee, long statepointId, CallingConvention.Type callType, JavaKind returnKind, boolean emitPatchpoint, LLVMValueRef... args) {
         LLVMValueRef result;
         if (Platform.includedIn(Platform.AMD64.class)) {
             LLVMValueRef call;
@@ -652,7 +652,11 @@ public class LLVMIRBuilder {
             setCallCallingConvention(call, callingConvention(callType));
         } else {
             LLVMTypeRef returnType = getReturnType(getElementType(typeOf(callee)));
-            result = buildCall(getPatchpointIntrinsic(returnType), getPatchpointArgs(statepointId, callee, args));
+            if (emitPatchpoint) {
+                result = buildCall(getPatchpointIntrinsic(returnType), getPatchpointArgs(statepointId, callee, args));
+            } else {
+                result = buildCall(callee, args);
+            }
 
             if (isVoidType(returnType)) {
                 // Do nothing
@@ -661,7 +665,11 @@ public class LLVMIRBuilder {
                 result = buildBitcast(result, doubleType());
             } else if (returnKind == JavaKind.Float) {
                 /* Hack for wrong code emission on Aarch64 and patchpoints. */
-                result = buildBitcast(buildTrunc(result, Float.SIZE), floatType());
+                if (emitPatchpoint) {
+                    result = buildBitcast(buildTrunc(result, Float.SIZE), floatType());
+                } else {
+                    result = buildBitcast(result, floatType());
+                }
             } else if (isPointer(returnType)) {
                 result = buildIntToPtr(result, returnType);
             } else if (isIntegerType(returnType)) {
