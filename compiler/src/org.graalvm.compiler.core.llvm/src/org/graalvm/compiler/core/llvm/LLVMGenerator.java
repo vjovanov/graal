@@ -461,7 +461,7 @@ public class LLVMGenerator implements LIRGeneratorTool {
         LLVMValueRef callee = getFunction(targetMethod);
         LLVMValueRef[] arguments = Arrays.stream(args).map(LLVMUtils::getVal).toArray(LLVMValueRef[]::new);
 
-        LLVMValueRef call = builder.buildCall(callee, patchpointId, getForeignCallCallingConvention(linkage), targetMethod.getSignature().getReturnKind(), arguments);
+        LLVMValueRef call = builder.buildCall(callee, patchpointId, getForeignCallCallingConvention(linkage), targetMethod.getSignature().getReturnKind(), true, arguments);
         return new LLVMVariable(call);
     }
 

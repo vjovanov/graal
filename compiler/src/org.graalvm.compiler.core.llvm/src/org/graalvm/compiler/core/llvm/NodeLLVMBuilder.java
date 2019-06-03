@@ -442,7 +442,12 @@ public class NodeLLVMBuilder implements NodeLIRBuilderTool {
 
             call = builder.buildInvoke(callee, successor, handler, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind(), args);
         } else {
-            call = builder.buildCall(callee, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind(), args);
+            /*
+             * We don't know here if it is a native call. Sad temporary fix to live only in this
+             * branch.
+             */
+            boolean emitPatchpoint = !callType.toString().contains("NativeCall");
+            call = builder.buildCall(callee, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind(), emitPatchpoint, args);
         }
         return call;
     }
