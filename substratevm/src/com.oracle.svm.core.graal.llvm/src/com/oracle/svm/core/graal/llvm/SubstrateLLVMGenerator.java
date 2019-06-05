@@ -60,7 +60,18 @@ public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLI
     SubstrateLLVMGenerator(Providers providers, LLVMGenerationResult generationResult, ResolvedJavaMethod method, LLVMContextRef context, int debugLevel) {
         super(providers, generationResult, method, new SubstrateLLVMIRBuilder(SubstrateUtil.uniqueShortName(method), context, shouldTrackPointers(method)),
                         new LLVMKindTool(context), debugLevel);
-
+        /*
+         * Called from native code so the workaround must not be applied here.
+         */
+        boolean shouldHack = !(method.getName().contains("GetDoubleField") ||
+                        method.getName().contains("GetFloatField") ||
+                        method.getName().contains("GetStaticDoubleField") ||
+                        method.getName().contains("CallStaticDoubleMethod") ||
+                        method.getName().contains("CallStaticFloatMethod") ||
+                        method.getName().contains("CallFloatMethod") ||
+                        method.getName().contains("CallDoubleMethod") ||
+                        method.getName().contains("GetStaticFloatField"));
+        applyHack.set(shouldHack);
         this.isEntryPoint = ((SharedMethod) method).isEntryPoint();
     }
 
