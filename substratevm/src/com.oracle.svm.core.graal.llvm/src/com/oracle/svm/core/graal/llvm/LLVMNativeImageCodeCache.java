@@ -518,7 +518,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                         cmd.add("-no-x86-call-frame-opt");
                         break;
                     case AArch64:
-                        cmd.add("-march=arm64");
+                        cmd.add("-march=grarch64");
                         cmd.add("-disable-fp-elim");
                         break;
                 }

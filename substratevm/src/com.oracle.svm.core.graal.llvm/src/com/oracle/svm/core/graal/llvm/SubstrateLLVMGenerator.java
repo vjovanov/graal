@@ -62,18 +62,11 @@ public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLI
     SubstrateLLVMGenerator(Providers providers, LLVMGenerationResult generationResult, ResolvedJavaMethod method, LLVMContextRef context, int debugLevel) {
         super(providers, generationResult, method, new SubstrateLLVMIRBuilder(SubstrateUtil.uniqueShortName(method), context, shouldTrackPointers(method)),
                         new LLVMKindTool(context), debugLevel);
-        /*
-         * Called from native code so the workaround must not be applied here.
-         */
+        /* Called from native code so the workaround for Aarch64 must not be applied here. */
         boolean applyAArchReturnTypeWorkaround = Platform.includedIn(Platform.AArch64.class) &&
-                        !(method.getName().contains("GetDoubleField") ||
-                                        method.getName().contains("GetFloatField") ||
-                                        method.getName().contains("GetStaticDoubleField") ||
-                                        method.getName().contains("CallStaticDoubleMethod") ||
-                                        method.getName().contains("CallStaticFloatMethod") ||
-                                        method.getName().contains("CallFloatMethod") ||
-                                        method.getName().contains("CallDoubleMethod") ||
-                                        method.getName().contains("GetStaticFloatField"));
+                        !(method.getDeclaringClass().toClassName().equals("com.oracle.svm.jni.functions.JNIFunctions") &&
+                                        (method.getSignature().getReturnKind() == JavaKind.Double || method.getSignature().getReturnKind() == JavaKind.Float));
+
         LLVMGenerator.applyAArchReturnFPReturnTypeWorkaround.set(applyAArchReturnTypeWorkaround);
         this.isEntryPoint = ((SharedMethod) method).isEntryPoint();
     }
