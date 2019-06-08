@@ -342,7 +342,9 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
             AtomicInteger num = new AtomicInteger(-1);
             paths = getCompilations().values().parallelStream().map(compilationResult -> {
                 int id = num.incrementAndGet();
-                String bitcodePath = basePath.resolve("llvm_" + id + ".bc").toString();
+
+                String methodName = compilationResult.getMethods()[0].format("%H.%n");
+                String bitcodePath = basePath.resolve("llvm_" + id + "_" + methodName.substring(0, Math.min(50, methodName.length())) + ".bc").toString();
 
                 try (FileOutputStream fos = new FileOutputStream(bitcodePath)) {
                     fos.write(compilationResult.getTargetCode());
@@ -464,7 +466,7 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
 
             List<String> cmd = new ArrayList<>();
             if (SubstrateOptions.MultiThreaded.getValue() && arch == LLVMUtils.Target.AArch64) {
-                cmd.add(customLLVMRoot + "/llc-aarch64-working");
+                cmd.add(customLLVMRoot + "/llc");
             } else {
                 cmd.add("llc");
             }
