@@ -352,9 +352,9 @@ public final class CEntryPointSnippets extends SubstrateTemplates implements Sni
     public static int enterSnippet(IsolateThread thread) {
         Isolate isolate;
         if (MultiThreaded.getValue()) {
-//            if (thread.isNull()) {
-//                return CEntryPointErrors.NULL_ARGUMENT;
-//            }
+            // if (thread.isNull()) {
+            // return CEntryPointErrors.NULL_ARGUMENT;
+            // }
             writeCurrentVMThread(thread);
             isolate = VMThreads.IsolateTL.get(thread);
         } else { // single-threaded

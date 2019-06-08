@@ -245,9 +245,11 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
                     Call call = (Call) infopoint;
 
                     /* Optimizations might have duplicated some calls. */
-                    for (int actualPcOffset : info.getPatchpointOffsets(call.pcOffset)) {
+                    for (int pcOffset : info.getPatchpointOffsets(call.pcOffset)) {
+                        int actualPcOffset = pcOffset;
                         if (Platform.includedIn(Platform.AArch64.class)) {
-                            actualPcOffset += 4; /* Patchpoints register the address of the call, not the return */
+                            /* Patchpoints register the address of the call, not the return. */
+                            actualPcOffset += 4;
                         }
                         SubstrateReferenceMap referenceMap = new SubstrateReferenceMap();
                         info.forEachStatepointOffset(call.pcOffset, actualPcOffset, (o, b) -> referenceMap.markReferenceAtOffset(o, b, SubstrateOptions.SpawnIsolates.getValue()));
@@ -422,8 +424,8 @@ public class LLVMNativeImageCodeCache extends NativeImageCodeCache {
              * not supported for statepoints.
              */
             if (targetPlatform instanceof Platform.AMD64) {
-//                cmd.add("-mem2reg");
-//                cmd.add("-rewrite-statepoints-for-gc");
+                cmd.add("-mem2reg");
+                cmd.add("-rewrite-statepoints-for-gc");
             }
             cmd.add("-always-inline");
             cmd.add("-o");

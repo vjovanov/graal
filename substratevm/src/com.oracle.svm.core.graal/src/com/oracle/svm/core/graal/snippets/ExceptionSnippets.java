@@ -120,7 +120,8 @@ public final class ExceptionSnippets extends SubstrateTemplates implements Snipp
             FixedWithNextNode readRegNode = graph.add(new ReadExceptionObjectNode(StampFactory.objectNonNull()));
             graph.replaceFixedWithFixed(node, readRegNode);
 
-            FixedWithNextNode restoreState = new FixedWithNextNode(FixedWithNextNode.TYPE, StampFactory.forVoid()) {};
+            FixedWithNextNode restoreState = new FixedWithNextNode(FixedWithNextNode.TYPE, StampFactory.forVoid()) {
+            };
             graph.add(restoreState);
             graph.addAfterFixed(readRegNode, restoreState);
 

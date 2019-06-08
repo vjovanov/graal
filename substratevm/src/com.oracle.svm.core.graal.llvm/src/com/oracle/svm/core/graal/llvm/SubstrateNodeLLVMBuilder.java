@@ -33,14 +33,17 @@ import org.graalvm.compiler.core.llvm.LLVMUtils;
 import org.graalvm.compiler.core.llvm.NodeLLVMBuilder;
 import org.graalvm.compiler.lir.Variable;
 import org.graalvm.compiler.nodes.Invoke;
+import org.graalvm.compiler.nodes.InvokeWithExceptionNode;
 import org.graalvm.compiler.nodes.LogicNode;
 import org.graalvm.compiler.nodes.LoweredCallTargetNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
 import org.graalvm.compiler.nodes.cfg.Block;
+import org.graalvm.nativeimage.Platform;
 
 import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.graal.code.CGlobalDataInfo;
 import com.oracle.svm.core.graal.code.CGlobalDataReference;
+import com.oracle.svm.core.graal.code.SubstrateCallingConventionType;
 import com.oracle.svm.core.graal.code.SubstrateDebugInfoBuilder;
 import com.oracle.svm.core.graal.code.SubstrateNodeLIRBuilder;
 import com.oracle.svm.core.graal.meta.RuntimeConfiguration;
@@ -51,6 +54,7 @@ import com.oracle.svm.core.nodes.SafepointCheckNode;
 import com.oracle.svm.core.thread.Safepoint;
 import com.oracle.svm.core.thread.VMThreads;
 
+import jdk.vm.ci.code.CallingConvention;
 import jdk.vm.ci.code.Register;
 
 public class SubstrateNodeLLVMBuilder extends NodeLLVMBuilder implements SubstrateNodeLIRBuilder {
@@ -96,6 +100,17 @@ public class SubstrateNodeLLVMBuilder extends NodeLLVMBuilder implements Substra
     @Override
     protected LLVMValueRef emitCall(Invoke i, LoweredCallTargetNode callTarget, LLVMValueRef callee, long patchpointId, LLVMValueRef... args) {
         if (!hasJavaFrameAnchor(callTarget)) {
+            if (!(i instanceof InvokeWithExceptionNode)) {
+                LLVMValueRef call;
+                CallingConvention.Type callType = callTarget.callType();
+                /*
+                 * We don't know here if it is a native call. The real fix is to implement
+                 * statepoints for AArch64.
+                 */
+                boolean emitPatchpoint = !(Platform.includedIn(Platform.AArch64.class) && callType == SubstrateCallingConventionType.NativeCall);
+                call = builder.buildCall(callee, patchpointId, callType, callTarget.returnStamp().getTrustedStamp().getStackKind(), emitPatchpoint, args);
+                return call;
+            }
             return super.emitCall(i, callTarget, callee, patchpointId, args);
         }
 

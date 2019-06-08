@@ -86,8 +86,7 @@ import com.oracle.svm.core.util.UnsignedUtils;
  * object table entries come in several ranges: <blockquote>
  * <table>
  * <tr>
- * <th align><u>Entry&nbsp;Value</u></th>
- * <th align=left><u> Interpretation</u></th>
+ * <th align><u>Entry&nbsp;Value</u></th> <th align=left><u> Interpretation</u></th>
  * </tr>
  * <tr>
  * <td>[-128..0]</td>

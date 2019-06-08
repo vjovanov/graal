@@ -137,7 +137,7 @@ public final class JavaStackWalker {
         } else if (totalFrameSize != CodeInfoQueryResult.ENTRY_POINT_FRAME_SIZE) {
             /* Bump sp *up* over my frame. */
             if (Platform.includedIn(Platform.AArch64.class)) {
-                sp = sp.<Pointer>readWord(-16).add(16);
+                sp = sp.<Pointer> readWord(-16).add(16);
             } else {
                 sp = sp.add(WordFactory.unsigned(totalFrameSize));
             }
