@@ -24,6 +24,9 @@
  */
 package com.oracle.svm.core.graal.llvm;
 
+import static com.oracle.svm.core.util.VMError.unimplemented;
+import static org.graalvm.compiler.core.llvm.LLVMUtils.getVal;
+
 import org.bytedeco.javacpp.LLVM.LLVMContextRef;
 import org.bytedeco.javacpp.LLVM.LLVMValueRef;
 import org.graalvm.compiler.core.common.spi.ForeignCallDescriptor;
@@ -32,6 +35,7 @@ import org.graalvm.compiler.core.llvm.LLVMGenerationResult;
 import org.graalvm.compiler.core.llvm.LLVMGenerator;
 import org.graalvm.compiler.core.llvm.LLVMUtils.LLVMKindTool;
 import org.graalvm.compiler.phases.util.Providers;
+import org.graalvm.nativeimage.Platform;
 import org.graalvm.util.GuardedAnnotationAccess;
 
 import com.oracle.svm.core.SubstrateOptions;
@@ -51,8 +55,6 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 import jdk.vm.ci.meta.ResolvedJavaType;
 import jdk.vm.ci.meta.Value;
 
-import static com.oracle.svm.core.util.VMError.unimplemented;
-
 public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLIRGenerator {
     private final boolean isEntryPoint;
     private LLVMValueRef savedThreadPointer;
@@ -63,16 +65,38 @@ public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLI
         /*
          * Called from native code so the workaround must not be applied here.
          */
-        boolean shouldHack = !(method.getName().contains("GetDoubleField") ||
-                        method.getName().contains("GetFloatField") ||
-                        method.getName().contains("GetStaticDoubleField") ||
-                        method.getName().contains("CallStaticDoubleMethod") ||
-                        method.getName().contains("CallStaticFloatMethod") ||
-                        method.getName().contains("CallFloatMethod") ||
-                        method.getName().contains("CallDoubleMethod") ||
-                        method.getName().contains("GetStaticFloatField"));
-        applyHack.set(shouldHack);
+        boolean applyAArchReturnTypeWorkaround = Platform.includedIn(Platform.AArch64.class) &&
+                        !(method.getName().contains("GetDoubleField") ||
+                                        method.getName().contains("GetFloatField") ||
+                                        method.getName().contains("GetStaticDoubleField") ||
+                                        method.getName().contains("CallStaticDoubleMethod") ||
+                                        method.getName().contains("CallStaticFloatMethod") ||
+                                        method.getName().contains("CallFloatMethod") ||
+                                        method.getName().contains("CallDoubleMethod") ||
+                                        method.getName().contains("GetStaticFloatField"));
+        LLVMGenerator.applyAArchReturnFPReturnTypeWorkaround.set(applyAArchReturnTypeWorkaround);
         this.isEntryPoint = ((SharedMethod) method).isEntryPoint();
+    }
+
+    @Override
+    public void emitReturn(JavaKind javaKind, Value input) {
+        if (javaKind != JavaKind.Void) {
+            LLVMValueRef retVal = getVal(input);
+            if (LLVMGenerator.applyAArchReturnFPReturnTypeWorkaround.get() && javaKind == JavaKind.Double) {
+                retVal = builder.buildBitcast(retVal, builder.longType());
+                emitFunctionEpilogue();
+                builder.buildRet(retVal);
+                return;
+            } else if (LLVMGenerator.applyAArchReturnFPReturnTypeWorkaround.get() && javaKind == JavaKind.Float) {
+                retVal = builder.buildBitcast(retVal, builder.intType());
+                retVal = builder.buildZExt(retVal, Long.SIZE);
+                retVal = builder.buildBitcast(retVal, builder.longType());
+                emitFunctionEpilogue();
+                builder.buildRet(retVal);
+                return;
+            }
+        }
+        super.emitReturn(javaKind, input);
     }
 
     private static boolean shouldTrackPointers(ResolvedJavaMethod method) {

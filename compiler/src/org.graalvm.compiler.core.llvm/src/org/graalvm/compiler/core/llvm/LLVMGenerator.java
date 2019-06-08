@@ -100,7 +100,7 @@ import jdk.vm.ci.meta.Value;
 import jdk.vm.ci.meta.ValueKind;
 
 public class LLVMGenerator implements LIRGeneratorTool {
-    public static ThreadLocal<Boolean> applyHack = new ThreadLocal<>();
+    public static ThreadLocal<Boolean> applyAArchReturnFPReturnTypeWorkaround = new ThreadLocal<>();
     private final ArithmeticLLVMGenerator arithmetic;
     protected final LLVMIRBuilder builder;
     private final LIRKindTool lirKindTool;
@@ -191,10 +191,10 @@ public class LLVMGenerator implements LIRGeneratorTool {
 
     private LLVMTypeRef getLLVMFunctionReturnType(ResolvedJavaMethod method) {
         ResolvedJavaType returnType = method.getSignature().getReturnType(null).resolve(null);
-        if (applyHack.get() && getTypeKind(returnType) == JavaKind.Double) {
+        if (applyAArchReturnFPReturnTypeWorkaround.get() && getTypeKind(returnType) == JavaKind.Double) {
             /* Hack for wrong code emission on Aarch64 and patchpoints. */
             return builder.getLLVMStackType(JavaKind.Long);
-        } else if (applyHack.get() && getTypeKind(returnType) == JavaKind.Float) {
+        } else if (applyAArchReturnFPReturnTypeWorkaround.get() && getTypeKind(returnType) == JavaKind.Float) {
             /* Hack for wrong code emission on Aarch64 and patchpoints. */
             return builder.getLLVMStackType(JavaKind.Long);
         } else {
@@ -592,12 +592,6 @@ public class LLVMGenerator implements LIRGeneratorTool {
                 /* Enum values are returned as long */
                 retVal = builder.buildIntToPtr(retVal, builder.rawPointerType());
                 retVal = builder.buildRegisterObject(retVal);
-            } else if (LLVMGenerator.applyHack.get() && javaKind == JavaKind.Double) {
-                retVal = builder.buildBitcast(retVal, builder.longType());
-            } else if (LLVMGenerator.applyHack.get() && javaKind == JavaKind.Float) {
-                retVal = builder.buildBitcast(retVal, builder.intType());
-                retVal = builder.buildZExt(retVal, Long.SIZE);
-                retVal = builder.buildBitcast(retVal, builder.longType());
             }
             emitFunctionEpilogue();
             builder.buildRet(retVal);

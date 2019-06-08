@@ -286,7 +286,7 @@ public class LLVMIRBuilder {
         return integerType(16);
     }
 
-    LLVMTypeRef intType() {
+    public LLVMTypeRef intType() {
         return integerType(32);
     }
 
@@ -802,7 +802,7 @@ public class LLVMIRBuilder {
         LLVM.LLVMBuildRetVoid(builder);
     }
 
-    void buildRet(LLVMValueRef value) {
+    public void buildRet(LLVMValueRef value) {
         LLVM.LLVMBuildRet(builder, value);
     }
 
@@ -1152,7 +1152,7 @@ public class LLVMIRBuilder {
         return LLVM.LLVMBuildSExt(builder, value, integerType(toBits), DEFAULT_INSTR_NAME);
     }
 
-    LLVMValueRef buildZExt(LLVMValueRef value, int toBits) {
+    public LLVMValueRef buildZExt(LLVMValueRef value, int toBits) {
         return LLVM.LLVMBuildZExt(builder, value, integerType(toBits), DEFAULT_INSTR_NAME);
     }
 
