@@ -44,13 +44,12 @@ import jdk.vm.ci.meta.JavaKind;
  * structure so that the argument is consumed.
  */
 @NodeInfo(size = SIZE_8, cycles = CYCLES_8)
-
-public final class VaListNextArgNode extends FixedWithNextNode implements Lowerable {
-    public static final NodeClass<VaListNextArgNode> TYPE = NodeClass.create(VaListNextArgNode.class);
+public final class VaListNextArgNodeLIRLowerable extends FixedWithNextNode implements LIRLowerable {
+    public static final NodeClass<VaListNextArgNodeLIRLowerable> TYPE = NodeClass.create(VaListNextArgNodeLIRLowerable.class);
 
     @Input protected ValueNode vaList;
 
-    public VaListNextArgNode(JavaKind kind, ValueNode vaList) {
+    public VaListNextArgNodeLIRLowerable(JavaKind kind, ValueNode vaList) {
         super(TYPE, StampFactory.forKind(kind));
         assert kind.isPrimitive() && kind != JavaKind.Void;
         this.vaList = vaList;
@@ -61,8 +60,7 @@ public final class VaListNextArgNode extends FixedWithNextNode implements Lowera
     }
 
     @Override
-    public void lower(LoweringTool tool) {
-        tool.getLowerer().lower(this, tool);
+    public void generate(NodeLIRBuilderTool generator) {
+        generator.setResult(this, generator.getLIRGeneratorTool().emitNextVaArg(generator.operand(vaList), getStackKind()));
     }
-
 }

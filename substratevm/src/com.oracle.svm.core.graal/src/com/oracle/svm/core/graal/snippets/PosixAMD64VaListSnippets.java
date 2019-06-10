@@ -24,12 +24,15 @@
  */
 package com.oracle.svm.core.graal.snippets;
 
+import static com.oracle.svm.core.SubstrateOptions.CompilerBackend;
+
 import java.util.Map;
 
 import org.graalvm.compiler.api.replacements.Snippet;
 import org.graalvm.compiler.api.replacements.SnippetReflectionProvider;
 import org.graalvm.compiler.debug.DebugHandlersFactory;
 import org.graalvm.compiler.graph.Node;
+import org.graalvm.compiler.nodes.StructuredGraph;
 import org.graalvm.compiler.nodes.spi.LoweringTool;
 import org.graalvm.compiler.options.OptionValues;
 import org.graalvm.compiler.phases.util.Providers;
@@ -40,6 +43,7 @@ import org.graalvm.compiler.replacements.Snippets;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platform.DARWIN_AMD64;
 import org.graalvm.nativeimage.Platform.LINUX_AMD64;
+import org.graalvm.nativeimage.impl.InternalPlatform;
 import org.graalvm.nativeimage.impl.InternalPlatform.DARWIN_JNI_AMD64;
 import org.graalvm.nativeimage.impl.InternalPlatform.LINUX_JNI_AMD64;
 import org.graalvm.word.Pointer;
@@ -48,6 +52,7 @@ import com.oracle.svm.core.annotate.AutomaticFeature;
 import com.oracle.svm.core.graal.GraalFeature;
 import com.oracle.svm.core.graal.meta.RuntimeConfiguration;
 import com.oracle.svm.core.graal.nodes.VaListNextArgNode;
+import com.oracle.svm.core.graal.nodes.VaListNextArgNodeLIRLowerable;
 import com.oracle.svm.core.util.VMError;
 
 @AutomaticFeature
@@ -55,7 +60,8 @@ class PosixAMD64VaListSnippetsFeature implements GraalFeature {
     @Override
     public boolean isInConfiguration(IsInConfigurationAccess access) {
         return Platform.includedIn(LINUX_AMD64.class) || Platform.includedIn(DARWIN_AMD64.class) ||
-                        Platform.includedIn(LINUX_JNI_AMD64.class) || Platform.includedIn(DARWIN_JNI_AMD64.class);
+                        Platform.includedIn(LINUX_JNI_AMD64.class) || Platform.includedIn(DARWIN_JNI_AMD64.class) ||
+                        Platform.includedIn(InternalPlatform.DARWIN_JNI_AArch64.class) || Platform.includedIn(Platform.DARWIN_AArch64.class);
     }
 
     @Override
@@ -184,7 +190,11 @@ final class PosixAMD64VaListSnippets extends SubstrateTemplates implements Snipp
                     SnippetReflectionProvider snippetReflection, Map<Class<? extends Node>, NodeLoweringProvider<?>> lowerings) {
 
         super(options, factories, providers, snippetReflection);
-        lowerings.put(VaListNextArgNode.class, new VaListSnippetsLowering());
+        if (CompilerBackend.getValue().toLowerCase().equals("llvm")) {
+            lowerings.put(VaListNextArgNode.class, new VaListLLVMLowering());
+        } else {
+            lowerings.put(VaListNextArgNode.class, new VaListSnippetsLowering());
+        }
     }
 
     protected class VaListSnippetsLowering implements NodeLoweringProvider<VaListNextArgNode> {
@@ -218,6 +228,16 @@ final class PosixAMD64VaListSnippets extends SubstrateTemplates implements Snipp
             Arguments args = new Arguments(snippet, node.graph().getGuardsStage(), tool.getLoweringStage());
             args.add("vaList", node.getVaList());
             template(node, args).instantiate(providers.getMetaAccess(), node, SnippetTemplate.DEFAULT_REPLACER, args);
+        }
+    }
+
+    protected class VaListLLVMLowering implements NodeLoweringProvider<VaListNextArgNode> {
+
+        @Override
+        public void lower(VaListNextArgNode node, LoweringTool tool) {
+            StructuredGraph graph = node.graph();
+            VaListNextArgNodeLIRLowerable newNode = graph.add(new VaListNextArgNodeLIRLowerable(node.getStackKind(), node.getVaList()));
+            graph.replaceFixedWithFixed(node, newNode);
         }
     }
 }
