@@ -33,6 +33,7 @@ import static com.oracle.svm.core.snippets.SnippetRuntime.UNWIND_EXCEPTION;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.oracle.svm.core.SubstrateOptions;
 import org.graalvm.compiler.api.replacements.Snippet;
 import org.graalvm.compiler.api.replacements.SnippetReflectionProvider;
 import org.graalvm.compiler.core.common.type.Stamp;
@@ -108,14 +109,26 @@ public final class ExceptionSnippets extends SubstrateTemplates implements Snipp
 
     protected class LoadExceptionObjectLowering implements NodeLoweringProvider<LoadExceptionObjectNode> {
 
+        private final SnippetInfo cFunctionEpilogue = snippet(CFunctionSnippets.class, "epilogueSnippet");
+
         @Override
         public void lower(LoadExceptionObjectNode node, LoweringTool tool) {
             FrameState exceptionState = node.stateAfter();
             assert exceptionState != null;
 
             StructuredGraph graph = node.graph();
+
             FixedWithNextNode readRegNode = graph.add(new ReadExceptionObjectNode(StampFactory.objectNonNull()));
             graph.replaceFixedWithFixed(node, readRegNode);
+            if (SubstrateOptions.CompilerBackend.getValue().equals("llvm")) {
+                FixedWithNextNode restoreState = new FixedWithNextNode(FixedWithNextNode.TYPE, StampFactory.forVoid()) {
+                };
+                graph.add(restoreState);
+                graph.addAfterFixed(readRegNode, restoreState);
+
+                Arguments args = new Arguments(cFunctionEpilogue, graph.getGuardsStage(), tool.getLoweringStage());
+                template(restoreState, args).instantiate(providers.getMetaAccess(), restoreState, SnippetTemplate.DEFAULT_REPLACER, args);
+            }
 
             graph.addAfterFixed(readRegNode, graph.add(new ExceptionStateNode(exceptionState)));
         }

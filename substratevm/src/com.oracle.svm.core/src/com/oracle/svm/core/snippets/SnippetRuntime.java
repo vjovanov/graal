@@ -32,6 +32,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.graalvm.compiler.api.replacements.Fold;
 import org.graalvm.compiler.core.common.spi.ForeignCallDescriptor;
 import org.graalvm.compiler.replacements.nodes.BinaryMathIntrinsicNode.BinaryOperation;
 import org.graalvm.compiler.replacements.nodes.UnaryMathIntrinsicNode.UnaryOperation;
@@ -63,6 +64,10 @@ import jdk.vm.ci.meta.MetaAccessProvider;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 public class SnippetRuntime {
+    @Fold
+    public static boolean isLLVM() {
+        return SubstrateOptions.CompilerBackend.getValue().equals("llvm");
+    }
 
     public static final SubstrateForeignCallDescriptor UNREACHED_CODE = findForeignCall(SnippetRuntime.class, "unreachedCode", true, LocationIdentity.any());
     public static final SubstrateForeignCallDescriptor UNRESOLVED = findForeignCall(SnippetRuntime.class, "unresolved", true, LocationIdentity.any());
@@ -209,33 +214,63 @@ public class SnippetRuntime {
         @RestrictHeapAccess(access = RestrictHeapAccess.Access.NO_ALLOCATION, reason = "Must not allocate when unwinding the stack.")
         @Override
         public boolean visitFrame(Pointer sp, CodePointer ip, DeoptimizedFrame deoptFrame) {
-            CodePointer handlerPointer;
-            if (deoptFrame != null) {
-                /* Deoptimization entry points always have an exception handler. */
-                deoptFrame.takeException();
-                handlerPointer = ip;
+            if (isLLVM()) {
+                CodePointer handlerIP;
+                if (deoptFrame != null) {
+                    /* Deoptimization entry points always have an exception handler. */
+                    deoptFrame.takeException();
+                    handlerIP = ip;
 
-            } else {
-                long handler = CodeInfoTable.lookupExceptionOffset(ip);
-                if (handler == 0) {
-                    /* No handler found in this frame, walk to caller frame. */
-                    return true;
+                } else {
+                    long handler = CodeInfoTable.lookupExceptionOffset(ip);
+                    if (handler == 0) {
+                        /* No handler found in this frame, walk to caller frame. */
+                        return true;
+                    }
+
+                    handlerIP = (CodePointer) ((UnsignedWord) ip).add(WordFactory.signed(handler));
                 }
 
-                handlerPointer = getExceptionHandlerPointer(ip, sp, handler);
+                Throwable exception = currentException.get();
+                currentException.set(null);
+
+                StackOverflowCheck.singleton().protectYellowZone();
+
+                KnownIntrinsics.farReturn(exception, sp, handlerIP);
+                /*
+                 * The intrinsic performs a jump to the specified instruction pointer, so this code
+                 * is unreachable.
+                 */
+                return false;
+            } else {
+                CodePointer handlerPointer;
+                if (deoptFrame != null) {
+                    /* Deoptimization entry points always have an exception handler. */
+                    deoptFrame.takeException();
+                    handlerPointer = ip;
+
+                } else {
+                    long handler = CodeInfoTable.lookupExceptionOffset(ip);
+                    if (handler == 0) {
+                        /* No handler found in this frame, walk to caller frame. */
+                        return true;
+                    }
+
+                    handlerPointer = getExceptionHandlerPointer(ip, sp, handler);
+                }
+
+                Throwable exception = currentException.get();
+                currentException.set(null);
+
+                StackOverflowCheck.singleton().protectYellowZone();
+
+                KnownIntrinsics.farReturn(exception, sp, handlerPointer);
+                /*
+                 * The intrinsic performs a jump to the specified instruction pointer, so this code
+                 * is unreachable.
+                 */
+                return false;
             }
-
-            Throwable exception = currentException.get();
-            currentException.set(null);
-
-            StackOverflowCheck.singleton().protectYellowZone();
-
-            KnownIntrinsics.farReturn(exception, sp, handlerPointer);
-            /*
-             * The intrinsic performs a jump to the specified instruction pointer, so this code is
-             * unreachable.
-             */
-            return false;
         }
 
         public CodePointer getExceptionHandlerPointer(CodePointer ip, @SuppressWarnings("unused") Pointer sp, long handlerOffset) {
@@ -243,7 +278,8 @@ public class SnippetRuntime {
         }
     }
 
-    protected static final FastThreadLocalObject<Throwable> currentException = FastThreadLocalFactory.createObject(Throwable.class);
+    private static final ExceptionStackFrameVisitor stackFrameVisitor = new ExceptionStackFrameVisitor();
+    public static final FastThreadLocalObject<Throwable> currentException = FastThreadLocalFactory.createObject(Throwable.class);
 
     @Uninterruptible(reason = "Called from uninterruptible callers.", mayBeInlined = true)
     public static boolean isUnwindingForException() {
@@ -290,7 +326,11 @@ public class SnippetRuntime {
          * exception. So we can start looking for the exception handler immediately in that frame,
          * without skipping any frames in between.
          */
-        JavaStackWalker.walkCurrentThread(callerSP, callerIP, ImageSingletons.lookup(ExceptionStackFrameVisitor.class));
+        if (isLLVM()) {
+            ImageSingletons.lookup(ExceptionUnwind.class).unwindException(callerSP, callerIP);
+        } else {
+            JavaStackWalker.walkCurrentThread(callerSP, callerIP, ImageSingletons.lookup(ExceptionStackFrameVisitor.class));
+        }
 
         /*
          * The stack walker does not return if an exception handler is found, but instead performs a
@@ -298,6 +338,12 @@ public class SnippetRuntime {
          * exception.
          */
         reportUnhandledExceptionRaw(exception);
+    }
+
+    public static class ExceptionUnwind {
+        public void unwindException(Pointer callerSP, CodePointer callerIP) {
+            JavaStackWalker.walkCurrentThread(callerSP, callerIP, stackFrameVisitor);
+        }
     }
 
     private static void reportUnhandledExceptionRaw(Throwable exception) {

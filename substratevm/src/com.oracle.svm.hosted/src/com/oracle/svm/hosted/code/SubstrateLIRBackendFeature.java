@@ -26,8 +26,9 @@ package com.oracle.svm.hosted.code;
 
 import static com.oracle.svm.core.SubstrateOptions.CompilerBackend;
 
-import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.ImageSingletons;
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.hosted.Feature;
 
 import com.oracle.svm.core.annotate.AutomaticFeature;
 import com.oracle.svm.core.snippets.SnippetRuntime;
@@ -35,7 +36,6 @@ import com.oracle.svm.hosted.image.LIRNativeImageCodeCache;
 import com.oracle.svm.hosted.image.NativeImageCodeCache;
 import com.oracle.svm.hosted.image.NativeImageCodeCacheFactory;
 import com.oracle.svm.hosted.image.NativeImageHeap;
-import org.graalvm.nativeimage.Platform;
 
 @AutomaticFeature
 class SubstrateLIRBackendFeature implements Feature {
@@ -52,6 +52,10 @@ class SubstrateLIRBackendFeature implements Feature {
                 return new LIRNativeImageCodeCache(compileQueue.getCompilations(), heap);
             }
         });
-        ImageSingletons.add(SnippetRuntime.ExceptionStackFrameVisitor.class, new SnippetRuntime.ExceptionStackFrameVisitor());
+        if (CompilerBackend.getValue().equals("llvm")) {
+            ImageSingletons.add(SnippetRuntime.ExceptionUnwind.class, new SnippetRuntime.ExceptionUnwind());
+        } else {
+            ImageSingletons.add(SnippetRuntime.ExceptionStackFrameVisitor.class, new SnippetRuntime.ExceptionStackFrameVisitor());
+        }
     }
 }
