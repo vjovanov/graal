@@ -63,14 +63,8 @@ public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLI
         /*
          * Called from native code so the workaround must not be applied here.
          */
-        boolean shouldHack = !(method.getName().contains("GetDoubleField") ||
-                        method.getName().contains("GetFloatField") ||
-                        method.getName().contains("GetStaticDoubleField") ||
-                        method.getName().contains("CallStaticDoubleMethod") ||
-                        method.getName().contains("CallStaticFloatMethod") ||
-                        method.getName().contains("CallFloatMethod") ||
-                        method.getName().contains("CallDoubleMethod") ||
-                        method.getName().contains("GetStaticFloatField"));
+        boolean shouldHack = !(method.getDeclaringClass().toClassName().equals("com.oracle.svm.jni.functions.JNIFunctions") &&
+                (method.getSignature().getReturnKind() == JavaKind.Double || method.getSignature().getReturnKind() == JavaKind.Float));
         applyHack.set(shouldHack);
         this.isEntryPoint = ((SharedMethod) method).isEntryPoint();
     }
