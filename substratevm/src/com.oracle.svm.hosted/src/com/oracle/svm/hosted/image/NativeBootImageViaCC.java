@@ -128,6 +128,12 @@ public abstract class NativeBootImageViaCC extends NativeBootImage {
             if (SubstrateOptions.DeleteLocalSymbols.getValue()) {
                 additionalPreOptions.add("-Wl,-x");
             }
+
+            additionalPreOptions.add("-arch");
+            additionalPreOptions.add(System.getProperty("svm.targetArch"));
+
+            additionalPreOptions.add("-miphoneos-version-min=6.0.0");
+
         }
 
         @Override

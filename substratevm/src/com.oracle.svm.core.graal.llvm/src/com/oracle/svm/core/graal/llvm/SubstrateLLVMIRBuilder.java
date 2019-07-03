@@ -24,9 +24,9 @@
  */
 package com.oracle.svm.core.graal.llvm;
 
-import org.bytedeco.javacpp.LLVM;
-import org.bytedeco.javacpp.LLVM.LLVMContextRef;
-import org.bytedeco.javacpp.LLVM.LLVMTypeRef;
+import org.bytedeco.llvm.global.LLVM;
+import org.bytedeco.llvm.LLVM.LLVMContextRef;
+import org.bytedeco.llvm.LLVM.LLVMTypeRef;
 
 import com.oracle.svm.core.SubstrateUtil;
 import org.graalvm.compiler.core.llvm.LLVMIRBuilder;

@@ -28,9 +28,9 @@ import static com.oracle.svm.core.util.VMError.shouldNotReachHere;
 import static com.oracle.svm.core.util.VMError.unimplemented;
 import static org.graalvm.compiler.core.llvm.LLVMUtils.getVal;
 
-import org.bytedeco.javacpp.LLVM;
-import org.bytedeco.javacpp.LLVM.LLVMContextRef;
-import org.bytedeco.javacpp.LLVM.LLVMValueRef;
+import org.bytedeco.llvm.LLVM.LLVMContextRef;
+import org.bytedeco.llvm.LLVM.LLVMTypeRef;
+import org.bytedeco.llvm.LLVM.LLVMValueRef;
 import org.graalvm.compiler.core.common.spi.ForeignCallDescriptor;
 import org.graalvm.compiler.core.llvm.LLVMGenerationResult;
 import org.graalvm.compiler.core.llvm.LLVMGenerator;
@@ -151,11 +151,11 @@ public class SubstrateLLVMGenerator extends LLVMGenerator implements SubstrateLI
     }
 
     @Override
-    protected LLVM.LLVMTypeRef[] getLLVMFunctionArgTypes(ResolvedJavaMethod method) {
-        LLVM.LLVMTypeRef[] parameterTypes = super.getLLVMFunctionArgTypes(method);
-        LLVM.LLVMTypeRef[] newParameterTypes = parameterTypes;
+    protected LLVMTypeRef[] getLLVMFunctionArgTypes(ResolvedJavaMethod method) {
+        LLVMTypeRef[] parameterTypes = super.getLLVMFunctionArgTypes(method);
+        LLVMTypeRef[] newParameterTypes = parameterTypes;
         if (!isEntryPoint(method) && registerStackSlots.length > 0) {
-            newParameterTypes = new LLVM.LLVMTypeRef[registerStackSlots.length + parameterTypes.length];
+            newParameterTypes = new LLVMTypeRef[registerStackSlots.length + parameterTypes.length];
             for (int i = 0; i < registerStackSlots.length; ++i) {
                 newParameterTypes[i] = canModifySpecialRegisters(method) ? builder.rawPointerType() : builder.longType();
             }

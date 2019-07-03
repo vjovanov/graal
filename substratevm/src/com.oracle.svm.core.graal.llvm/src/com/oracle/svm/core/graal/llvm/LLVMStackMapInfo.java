@@ -40,8 +40,6 @@ import com.oracle.svm.core.util.VMError;
 import org.graalvm.compiler.core.llvm.LLVMUtils;
 
 public class LLVMStackMapInfo {
-    private static final int AMD64_RSP_IDX = 7;
-    private static final int AMD64_RBP_IDX = 6;
     private StackMap stackMap;
 
     static class StackMap {
@@ -297,9 +295,9 @@ public class LLVMStackMapInfo {
         assert location.size == 8;
 
         int offset;
-        if (location.regNum == AMD64_RSP_IDX) {
-            offset = location.offset;
-        } else if (location.regNum == AMD64_RBP_IDX) {
+        if (location.regNum == LLVMUtils.TargetSpecific.get().getStackPointerDwarfRegNum()) {
+            offset = location.offset + NumUtil.safeToInt(getFunctionStackSize(patchpointID));
+        } else if (location.regNum == LLVMUtils.TargetSpecific.get().getFramePointerDwarfRegNum()) {
             /*
              * Convert frame-relative offset (negative) to a stack-relative offset (positive).
              */

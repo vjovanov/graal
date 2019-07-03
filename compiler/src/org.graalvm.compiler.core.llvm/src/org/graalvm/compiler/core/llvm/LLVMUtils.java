@@ -24,15 +24,18 @@
  */
 package org.graalvm.compiler.core.llvm;
 
-import static org.bytedeco.javacpp.LLVM.LLVMTypeOf;
+import static org.bytedeco.llvm.global.LLVM.LLVMTypeOf;
 import static org.graalvm.compiler.debug.GraalError.shouldNotReachHere;
 import static org.graalvm.compiler.debug.GraalError.unimplemented;
 
-import org.bytedeco.javacpp.LLVM;
-import org.bytedeco.javacpp.LLVM.LLVMContextRef;
-import org.bytedeco.javacpp.LLVM.LLVMTypeRef;
-import org.bytedeco.javacpp.LLVM.LLVMValueRef;
+import java.util.Collections;
+import java.util.List;
+
 import org.bytedeco.javacpp.Pointer;
+import org.bytedeco.llvm.LLVM.LLVMContextRef;
+import org.bytedeco.llvm.LLVM.LLVMTypeRef;
+import org.bytedeco.llvm.LLVM.LLVMValueRef;
+import org.bytedeco.llvm.global.LLVM;
 import org.graalvm.compiler.core.common.LIRKind;
 import org.graalvm.compiler.core.common.NumUtil;
 import org.graalvm.compiler.core.common.calc.Condition;
@@ -67,22 +70,38 @@ public class LLVMUtils {
     }
 
     /**
-     * LLVM target-specific inline assembly snippets.
+     * LLVM target-specific inline assembly snippets and information.
      */
-    public abstract static class TargetSpecific {
-        public static TargetSpecific get() {
+    public interface TargetSpecific {
+        static TargetSpecific get() {
             return ImageSingletons.lookup(TargetSpecific.class);
         }
 
         /**
          * Snippet that gets the value of an arbitrary register.
          */
-        public abstract String getRegisterInlineAsm(String register);
+        String getRegisterInlineAsm(String register);
 
         /**
          * Snippet that jumps to a runtime-computed address.
          */
-        public abstract String getJumpInlineAsm();
+        String getJumpInlineAsm();
+
+        String getLLVMArchName();
+
+        int getFrameSizePadding();
+
+        int getStackPointerDwarfRegNum();
+
+        int getFramePointerDwarfRegNum();
+
+        default List<String> getLLCAdditionalOptions() {
+            return Collections.emptyList();
+        }
+
+        default String getLLVMRegisterName(String register) {
+            return register;
+        }
     }
 
     static int getLLVMIntCond(Condition cond) {
@@ -226,7 +245,7 @@ public class LLVMUtils {
         private final LLVMVariable address;
 
         LLVMStackSlot(LLVMValueRef value) {
-            super(id++, LLVMKind.toLIRKind(LLVM.LLVMTypeOf(value)));
+            super(id++, LLVMKind.toLIRKind(LLVMTypeOf(value)));
 
             this.value = value;
             this.address = new LLVMVariable(value);
