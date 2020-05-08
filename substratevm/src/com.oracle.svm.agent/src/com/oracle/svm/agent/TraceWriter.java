@@ -110,6 +110,10 @@ public abstract class TraceWriter implements Closeable {
         traceEntry(entry);
     }
 
+    public void traceDynamicClassChecksum(String className, int checksumHash, Object result) {
+        traceCall("reflect", "checksum", className, null, null, result, checksumHash);
+    }
+
     abstract void traceEntry(Map<String, Object> entry);
 
     @Override

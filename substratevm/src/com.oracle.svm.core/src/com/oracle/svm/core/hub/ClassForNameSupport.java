@@ -37,10 +37,15 @@ import com.oracle.svm.core.annotate.AutomaticFeature;
 public final class ClassForNameSupport {
 
     private final Map<String, Class<?>> knownClasses = new HashMap<>();
+    private final Map<String, Integer> dynamicGeneratedClasses = new HashMap<>();
 
     @Platforms(Platform.HOSTED_ONLY.class)
     public static void registerClass(Class<?> clazz) {
         ImageSingletons.lookup(ClassForNameSupport.class).knownClasses.put(clazz.getName(), clazz);
+    }
+
+    public static void registerDynamicClassChecksum(String className, int hashCode) {
+        ImageSingletons.lookup(ClassForNameSupport.class).dynamicGeneratedClasses.put(className, hashCode);
     }
 
     public static Class<?> forNameOrNull(String className, boolean initialize) {
@@ -60,6 +65,14 @@ public final class ClassForNameSupport {
             throw new ClassNotFoundException(className);
         }
         return result;
+    }
+
+    public static int getDynamicClassChecksum(String className) throws ClassNotFoundException {
+        Integer hashCode = ImageSingletons.lookup(ClassForNameSupport.class).dynamicGeneratedClasses.get(className);
+        if (hashCode == null) {
+            throw new ClassNotFoundException(className);
+        }
+        return hashCode;
     }
 }
 

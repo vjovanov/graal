@@ -39,17 +39,27 @@ public class NativeImageAgentJNIHandleSet extends JNIHandleSet {
     final JNIObjectHandle javaLangClass;
     final JNIMethodId javaLangClassForName3;
     final JNIMethodId javaUtilEnumerationNextElement;
+    final JNIMethodId javaLangReflectMemberGetName;
+    final JNIMethodId javaLangReflectMemberGetDeclaringClass;
+    final JNIMethodId javaUtilEnumerationHasMoreElements;
+    final JNIMethodId javaUtilMissingResourceExceptionCtor3;
+    public final JNIMethodId javaLangClassLoaderGetResource;
+    final JNIObjectHandle javaLangClassLoader;
+    public final JNIObjectHandle javaNioByteBuffer;
+    public final JNIObjectHandle javaLangSecurityException;
+    public final JNIObjectHandle javaLangNoClassDefFoundError;
+    public final JNIObjectHandle javaLangNoSuchMethodError;
+    public final JNIObjectHandle javaLangIncompatibleClassChangeError;
+    final JNIObjectHandle javaLangNoSuchMethodException;
+    public final JNIObjectHandle javaLangNoSuchFieldError;
+    final JNIObjectHandle javaLangNoSuchFieldException;
+    final JNIObjectHandle javaLangClassNotFoundException;
+    final JNIObjectHandle javaLangRuntimeException;
+    final JNIObjectHandle javaUtilMissingResourceException;
     final JNIMethodId javaLangClassGetDeclaredMethod;
     final JNIMethodId javaLangClassGetDeclaredConstructor;
     final JNIMethodId javaLangClassGetDeclaredField;
     final JNIMethodId javaLangClassGetName;
-
-    final JNIMethodId javaLangReflectMemberGetName;
-    final JNIMethodId javaLangReflectMemberGetDeclaringClass;
-
-    final JNIMethodId javaUtilEnumerationHasMoreElements;
-
-    final JNIObjectHandle javaLangClassLoader;
 
     private JNIMethodId javaLangInvokeMethodTypeParameterArray = WordFactory.nullPointer();
 
@@ -74,6 +84,8 @@ public class NativeImageAgentJNIHandleSet extends JNIHandleSet {
         javaLangClassGetDeclaredField = getMethodId(env, javaLangClass, "getDeclaredField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;", false);
         javaLangClassGetName = getMethodId(env, javaLangClass, "getName", "()Ljava/lang/String;", false);
 
+        javaLangClassLoaderGetResource = getMethodId(env, findClass(env, "java/lang/ClassLoader"), "getResource", "(Ljava/lang/String;)Ljava/net/URL;", false);
+
         JNIObjectHandle javaLangReflectMember = findClass(env, "java/lang/reflect/Member");
         javaLangReflectMemberGetName = getMethodId(env, javaLangReflectMember, "getName", "()Ljava/lang/String;", false);
         javaLangReflectMemberGetDeclaringClass = getMethodId(env, javaLangReflectMember, "getDeclaringClass", "()Ljava/lang/Class;", false);
@@ -83,6 +95,18 @@ public class NativeImageAgentJNIHandleSet extends JNIHandleSet {
         javaUtilEnumerationNextElement = getMethodId(env, javaUtilEnumeration, "nextElement", "()Ljava/lang/Object;", false);
 
         javaLangClassLoader = newClassGlobalRef(env, "java/lang/ClassLoader");
+        javaNioByteBuffer = newClassGlobalRef(env, "java/nio/ByteBuffer");
+        javaLangSecurityException = newClassGlobalRef(env, "java/lang/SecurityException");
+        javaLangNoClassDefFoundError = newClassGlobalRef(env, "java/lang/NoClassDefFoundError");
+        javaLangNoSuchMethodError = newClassGlobalRef(env, "java/lang/NoSuchMethodError");
+        javaLangNoSuchMethodException = newClassGlobalRef(env, "java/lang/NoSuchMethodException");
+        javaLangNoSuchFieldError = newClassGlobalRef(env, "java/lang/NoSuchFieldError");
+        javaLangIncompatibleClassChangeError = newClassGlobalRef(env, "java/lang/IncompatibleClassChangeError");
+        javaLangNoSuchFieldException = newClassGlobalRef(env, "java/lang/NoSuchFieldException");
+        javaLangClassNotFoundException = newClassGlobalRef(env, "java/lang/ClassNotFoundException");
+        javaLangRuntimeException = newClassGlobalRef(env, "java/lang/RuntimeException");
+        javaUtilMissingResourceException = newClassGlobalRef(env, "java/util/MissingResourceException");
+        javaUtilMissingResourceExceptionCtor3 = getMethodId(env, javaUtilMissingResourceException, "<init>", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
     }
 
     JNIMethodId getJavaLangInvokeMethodTypeParameterArray(JNIEnvironment env) {

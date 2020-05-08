@@ -81,5 +81,10 @@ public abstract class ConfigurationParser {
             return intValue;
         }
         throw new JSONParserException("Invalid long value '" + value + "' for element '" + propertyName + "'");
+    static int asInteger(Object value, String propertyName) {
+        if (value instanceof Integer) {
+            return (int) value;
+        }
+        throw new JSONParserException("Invalid int value '" + value + "' for element '" + propertyName + "'");
     }
 }

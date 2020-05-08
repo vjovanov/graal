@@ -231,6 +231,11 @@ class ReflectionProcessor extends AbstractProcessor {
                 resourceConfiguration.addBundle((String) args.get(2));
                 break;
             }
+            case "checksum": {
+                expectSize(args, 1);
+                configuration.getOrCreateType(clazzOrDeclaringClass).setDynamicClassChecksum((Integer) args.get(0));
+                break;
+            }
             default:
                 System.err.println("Unsupported reflection method: " + function);
         }
