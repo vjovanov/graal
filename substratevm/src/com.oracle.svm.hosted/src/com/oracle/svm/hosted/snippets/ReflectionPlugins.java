@@ -24,6 +24,8 @@
  */
 package com.oracle.svm.hosted.snippets;
 
+import static com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.getCallingContextSubset;
+
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
@@ -62,7 +64,14 @@ import jdk.vm.ci.meta.ResolvedJavaType;
 
 public class ReflectionPlugins {
 
-    static class ReflectionPluginRegistry extends IntrinsificationPluginRegistry {
+    public static class ReflectionPluginRegistry extends IntrinsificationPluginRegistry {
+        public static void setRegistryDisabledForCurrentThread(boolean registryDisabled) {
+            ImageSingletons.lookup(ReflectionPluginRegistry.class).registryDisabled.set(registryDisabled);
+        }
+
+        public static boolean registryDisabledForCurrentThread() {
+            return ImageSingletons.lookup(ReflectionPluginRegistry.class).registryDisabled.get();
+        }
     }
 
     static class Options {
@@ -270,11 +279,10 @@ public class ReflectionPlugins {
             }
 
             /* We are during analysis, we should intrinsify and cache the intrinsified object. */
-            ImageSingletons.lookup(ReflectionPluginRegistry.class).add(context.getMethod(), context.bci(), element);
-            return element;
+            ImageSingletons.lookup(ReflectionPluginRegistry.class).add(context.getCallingContext(), element);
         }
         /* We are during compilation, we only intrinsify if intrinsified during analysis. */
-        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(context.getMethod(), context.bci());
+        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(getCallingContextSubset(context, context.getDepth()));
     }
 
     private static <T> boolean isDeleted(T element, MetaAccessProvider metaAccess) {

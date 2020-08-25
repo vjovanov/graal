@@ -39,27 +39,33 @@ import org.graalvm.compiler.phases.OptimisticOptimizations;
 import org.graalvm.compiler.phases.util.Providers;
 import org.graalvm.compiler.word.WordTypes;
 
+import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
 
 import jdk.vm.ci.meta.JavaKind;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 public class AnalysisGraphBuilderPhase extends SharedGraphBuilderPhase {
+    protected final BigBang bb;
 
-    public AnalysisGraphBuilderPhase(Providers providers,
+    public AnalysisGraphBuilderPhase(BigBang bb, Providers providers,
                     GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts, IntrinsicContext initialIntrinsicContext, WordTypes wordTypes) {
         super(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, wordTypes);
+        this.bb = bb;
     }
 
     @Override
     protected BytecodeParser createBytecodeParser(StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI, IntrinsicContext intrinsicContext) {
-        return new AnalysisBytecodeParser(this, graph, parent, method, entryBCI, intrinsicContext);
+        return new AnalysisBytecodeParser(bb, this, graph, parent, method, entryBCI, intrinsicContext);
     }
 
     public static class AnalysisBytecodeParser extends SharedBytecodeParser {
-        protected AnalysisBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI,
+        protected final BigBang bb;
+
+        protected AnalysisBytecodeParser(BigBang bb, GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI,
                         IntrinsicContext intrinsicContext) {
             super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext, true);
+            this.bb = bb;
         }
 
         @Override
@@ -73,7 +79,8 @@ public class AnalysisGraphBuilderPhase extends SharedGraphBuilderPhase {
 
         @Override
         protected BytecodeParser.ExceptionEdgeAction getActionForInvokeExceptionEdge(InlineInfo lastInlineInfo) {
-            if (currentBlock.exceptionDispatchBlock() == null) {
+            if (currentBlock.exceptionDispatchBlock() == null || !insideTryBlock()) {
+
                 /*
                  * The static analysis does not track the flow of exceptions across method
                  * boundaries. Therefore, it is not necessary to have exception edges that go

@@ -127,6 +127,7 @@ import com.oracle.svm.hosted.FeatureImpl.BeforeCompilationAccessImpl;
 import com.oracle.svm.hosted.FeatureImpl.DuringAnalysisAccessImpl;
 import com.oracle.svm.hosted.SVMHost;
 import com.oracle.svm.hosted.meta.HostedType;
+import com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingSupport;
 import com.oracle.svm.hosted.snippets.SubstrateGraphBuilderPlugins;
 import com.oracle.svm.truffle.api.SubstrateOptimizedCallTarget;
 import com.oracle.svm.truffle.api.SubstratePartialEvaluator;
@@ -359,6 +360,9 @@ public final class TruffleFeature implements com.oracle.svm.core.graal.GraalFeat
             support = new Support();
         }
         imageClassLoader = a.getApplicationClassLoader();
+
+        /* Inline during parsing does not work well with deopt targets ATM. */
+        ImageSingletons.lookup(NativeImageInlineDuringParsingSupport.class).disableNativeImageInlineDuringParsing();
 
         TruffleRuntime runtime = Truffle.getRuntime();
         UserError.guarantee(runtime != null, "TruffleRuntime not available via Truffle.getRuntime()");

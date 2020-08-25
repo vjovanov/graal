@@ -260,6 +260,8 @@ import com.oracle.svm.hosted.phases.ConstantFoldLoadFieldPlugin;
 import com.oracle.svm.hosted.phases.EarlyConstantFoldLoadFieldPlugin;
 import com.oracle.svm.hosted.phases.InjectedAccessorsPlugin;
 import com.oracle.svm.hosted.phases.IntrinsifyMethodHandlesInvocationPlugin;
+import com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin;
+import com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingSupport;
 import com.oracle.svm.hosted.phases.SubstrateClassInitializationPlugin;
 import com.oracle.svm.hosted.phases.VerifyDeoptFrameStatesLIRPhase;
 import com.oracle.svm.hosted.phases.VerifyNoGuardsPhase;
@@ -833,6 +835,9 @@ public class NativeImageGenerator {
                 ImageSingletons.add(RuntimeClassInitializationSupport.class, classInitializationSupport);
                 ClassInitializationFeature.processClassInitializationOptions(classInitializationSupport);
 
+                /* Initialize the registry for the inline decisions */
+                ImageSingletons.add(NativeImageInlineDuringParsingSupport.class, new NativeImageInlineDuringParsingSupport());
+
                 featureHandler.registerFeatures(loader, debug);
                 AfterRegistrationAccessImpl access = new AfterRegistrationAccessImpl(featureHandler, loader, originalMetaAccess, mainEntryPoint, debug);
                 featureHandler.forEachFeature(feature -> feature.afterRegistration(access));
@@ -1134,6 +1139,12 @@ public class NativeImageGenerator {
 
         SubstrateReplacements replacements = (SubstrateReplacements) providers.getReplacements();
         plugins.appendInlineInvokePlugin(replacements);
+
+        if (NativeImageInlineDuringParsingPlugin.Options.InlineBeforeAnalysis.getValue() &&
+                        !ImageSingletons.lookup(NativeImageInlineDuringParsingSupport.class).isNativeImageInlineDuringParsingDisabled()) {
+            NativeImageInlineDuringParsingPlugin nativeImageInlineDuringParsingPlugin = new NativeImageInlineDuringParsingPlugin(analysis, providers);
+            plugins.appendInlineInvokePlugin(nativeImageInlineDuringParsingPlugin);
+        }
 
         plugins.appendNodePlugin(new IntrinsifyMethodHandlesInvocationPlugin(analysis, providers, aUniverse, hUniverse));
         plugins.appendNodePlugin(new DeletedFieldsPlugin());
