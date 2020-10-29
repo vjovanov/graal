@@ -140,6 +140,7 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
  * inline it because it only returns a constant value. After that, B folds to constant, so we inline
  * this method too. Finally, for the same reason, we decide to inline A into R.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin {
 
     public static class Options {
@@ -157,7 +158,6 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
     }
 
     @Override
-    @SuppressWarnings("try")
     public InlineInfo shouldInlineInvoke(GraphBuilderContext b, ResolvedJavaMethod callee, ValueNode[] args) {
         ResolvedJavaMethod caller = b.getMethod();
         if (inliningBeforeAnalysisSupported(b, callee, caller)) {
@@ -437,7 +437,7 @@ class TrivialMethodDetector {
             return InvocationResult.ANALYSIS_TOO_COMPLICATED;
         }
 
-        MethodNodeTrackingAndInline methodState = new MethodNodeTrackingAndInline(new InvocationResultInline(callSite, method));
+        TrivialChildrenInline methodState = new TrivialChildrenInline(new InvocationResultInline(callSite, method));
 
         GraphBuilderConfiguration graphBuilderConfig = prototypeGraphBuilderConfig.copy();
         graphBuilderConfig.getPlugins().appendInlineInvokePlugin(methodState);
@@ -450,7 +450,7 @@ class TrivialMethodDetector {
             TrivialMethodDetectorGraphBuilderPhase builderPhase = new TrivialMethodDetectorGraphBuilderPhase(bb, providers, graphBuilderConfig, OptimisticOptimizations.NONE, null,
                             providers.getWordTypes());
 
-            try (NodeEventScope ignored1 = graph.trackNodeEvents(methodState)) {
+            try (NodeEventScope ignored1 = graph.trackNodeEvents(new MethodNodeTracking())) {
                 builderPhase.apply(graph);
             }
 
@@ -467,17 +467,13 @@ class TrivialMethodDetector {
     }
 
     /**
-     * We collect information during graph construction to filter non-trivial methods and inline
-     * trivial invokes. The result is used in {@link #analyzeMethod}.
+     * We collect information during graph construction to filter non-trivial methods.
      */
-    class MethodNodeTrackingAndInline extends NodeEventListener implements InlineInvokePlugin {
-
-        final InvocationResultInline result;
+    static class MethodNodeTracking extends NodeEventListener {
         boolean detectFrameState;
         boolean detectSingleElement;
 
-        MethodNodeTrackingAndInline(InvocationResultInline result) {
-            this.result = result;
+        MethodNodeTracking() {
             this.detectFrameState = false;
             this.detectSingleElement = false;
         }
@@ -500,7 +496,7 @@ class TrivialMethodDetector {
                     assert ((FrameState) node).bci == 0 : "We assume the only frame state is for the start node. BCI is " + ((FrameState) node).bci;
                     detectFrameState = true;
                 } else {
-                    throw new TrivialMethodDetectorBailoutException("Only frames tate for the start node is allowed: " + node);
+                    throw new TrivialMethodDetectorBailoutException("Only frame state for the start node is allowed: " + node);
                 }
             } else if (node instanceof NewArrayNode) {
                 /*
@@ -515,6 +511,17 @@ class TrivialMethodDetector {
             } else {
                 throw new TrivialMethodDetectorBailoutException("Node not allowed: " + node);
             }
+        }
+    }
+
+    /**
+     * Inline trivial invokes (children). The result is used in {@link #analyzeMethod}.
+     */
+    class TrivialChildrenInline implements InlineInvokePlugin {
+        final InvocationResultInline result;
+
+        TrivialChildrenInline(InvocationResultInline result) {
+            this.result = result;
         }
 
         @Override
