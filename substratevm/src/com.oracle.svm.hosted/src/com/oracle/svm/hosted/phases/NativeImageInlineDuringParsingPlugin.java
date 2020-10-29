@@ -63,6 +63,7 @@ import org.graalvm.compiler.phases.OptimisticOptimizations;
 import org.graalvm.compiler.phases.util.Providers;
 import org.graalvm.compiler.word.WordTypes;
 import org.graalvm.nativeimage.ImageSingletons;
+import org.graalvm.util.GuardedAnnotationAccess;
 
 import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
@@ -71,6 +72,7 @@ import com.oracle.graal.pointsto.meta.HostedProviders;
 import com.oracle.svm.core.annotate.NeverInline;
 import com.oracle.svm.core.annotate.NeverInlineTrivial;
 import com.oracle.svm.core.annotate.RestrictHeapAccess;
+import com.oracle.svm.core.annotate.Uninterruptible;
 import com.oracle.svm.core.option.HostedOptionKey;
 import com.oracle.svm.core.util.VMError;
 import com.oracle.svm.hosted.meta.HostedMethod;
@@ -156,23 +158,11 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
     @Override
     @SuppressWarnings("try")
     public InlineInfo shouldInlineInvoke(GraphBuilderContext b, ResolvedJavaMethod callee, ValueNode[] args) {
-        if (b.parsingIntrinsic()) {
-            /* We are not interfering with any intrinsic method handling. */
+        ResolvedJavaMethod caller = b.getMethod();
+        if (inliningBeforeAnalysisSupported(b, callee, caller)) {
             return null;
         }
 
-        if (callee.getAnnotation(NeverInline.class) != null || callee.getAnnotation(NeverInlineTrivial.class) != null || b.getMethod().getAnnotation(NeverInline.class) != null ||
-                        b.getMethod().getAnnotation(NeverInlineTrivial.class) != null) {
-            return null;
-        }
-
-        if (callee.getAnnotation(RestrictHeapAccess.class) != null || b.getMethod().getAnnotation(RestrictHeapAccess.class) != null) {
-            /*
-             * Caller or callee have an annotation that might prevent inlining. We don't check the
-             * exact condition but instead always bail out for simplicity.
-             */
-            return null;
-        }
         InvocationResult inline;
         if (b.getDepth() == 0) {
             CallSite callSite = new CallSite(b.getCallingContext(), toAnalysisMethod(callee));
@@ -188,10 +178,9 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                         NativeImageInlineDuringParsingPlugin.support().add(callSite, newResult);
                         inline = newResult;
                     } catch (Throwable ex) {
-                        debug.dump(DebugContext.VERBOSE_LEVEL, this, "TrivialMethodDetectorAnalysis failed with %s", ex);
+                        debug.handle(ex);
                     } finally {
                         ReflectionPlugins.ReflectionPluginRegistry.setRegistryDisabledForCurrentThread(false);
-                        debug.dump(DebugContext.VERBOSE_LEVEL, this, "TrivialMethodDetectorAnalysis successful");
                     }
                 }
             } else {
@@ -203,15 +192,11 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                 return null;
             } else {
                 CallSite callSite = new CallSite(getCallingContextSubset(b, b.getDepth()), toAnalysisMethod(callee));
-                inline = inlineDuringParsingState.children.get(callSite);
-                if (inline == null) {
-                    /*
-                     * We already decided to inline the first callee into the root method, so now we
-                     * must recursively inline everything. Missing information about the child can
-                     * happen when there is a virtual invoke in the inlined callee.
-                     */
-                    inline = new InvocationResultInline(callSite, toAnalysisMethod(callee));
+                if (callSite.bci.length > 1) {
+                    throw new AssertionError("Should not happen to have BCI chain longer than 1.");
                 }
+                inline = inlineDuringParsingState.children.get(callSite);
+                assert inline != null : "We must always inline all the methods to get a constant, field load, or new instance.";
             }
         }
 
@@ -237,6 +222,13 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         } else {
             return null;
         }
+    }
+
+    static boolean inliningBeforeAnalysisSupported(GraphBuilderContext b, ResolvedJavaMethod callee, ResolvedJavaMethod caller) {
+        return b.parsingIntrinsic() ||
+                        GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInline.class) || GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInlineTrivial.class) ||
+                        GuardedAnnotationAccess.isAnnotationPresent(callee, Uninterruptible.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, Uninterruptible.class) ||
+                        GuardedAnnotationAccess.isAnnotationPresent(callee, RestrictHeapAccess.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, RestrictHeapAccess.class);
     }
 
     @Override
@@ -324,7 +316,12 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
     }
 
     static class InvocationResult {
-        static final InvocationResult ANALYSIS_TOO_COMPLICATED = new InvocationResult();
+        static final InvocationResult ANALYSIS_TOO_COMPLICATED = new InvocationResult() {
+            @Override
+            public String toString() {
+                return "Analysis to complicated.";
+            }
+        };
 
         @Override
         public boolean equals(Object obj) {
@@ -491,9 +488,10 @@ class TrivialMethodDetector {
                 /* Nothing to do, it's ok to read a static or instance field. */
             } else if (node instanceof FrameState) {
                 if (!detectFrameState) {
+                    assert ((FrameState) node).bci == 0 : "We assume the only frame state is for the start node. BCI is " + ((FrameState) node).bci;
                     detectFrameState = true;
                 } else {
-                    throw new TrivialMethodDetectorBailoutException("Only framestate for the start node allowed: " + node);
+                    throw new TrivialMethodDetectorBailoutException("Only frames tate for the start node is allowed: " + node);
                 }
             } else if (node instanceof NewArrayNode) {
                 /*
@@ -512,8 +510,8 @@ class TrivialMethodDetector {
 
         @Override
         public InlineInfo shouldInlineInvoke(GraphBuilderContext b, ResolvedJavaMethod callee, ValueNode[] args) {
-            if (callee.getAnnotation(NeverInline.class) != null || callee.getAnnotation(NeverInlineTrivial.class) != null) {
-                return null;
+            if (NativeImageInlineDuringParsingPlugin.inliningBeforeAnalysisSupported(b, callee, b.getMethod())) {
+                throw new TrivialMethodDetectorBailoutException("Can't inline: " + callee);
             }
 
             CallSite callSite = new CallSite(b.getCallingContext(), NativeImageInlineDuringParsingPlugin.toAnalysisMethod(callee));

@@ -79,7 +79,7 @@ public class AnalysisGraphBuilderPhase extends SharedGraphBuilderPhase {
 
         @Override
         protected BytecodeParser.ExceptionEdgeAction getActionForInvokeExceptionEdge(InlineInfo lastInlineInfo) {
-            if (currentBlock.exceptionDispatchBlock() == null || !insideTryBlock()) {
+            if (!insideTryBlock()) {
 
                 /*
                  * The static analysis does not track the flow of exceptions across method
