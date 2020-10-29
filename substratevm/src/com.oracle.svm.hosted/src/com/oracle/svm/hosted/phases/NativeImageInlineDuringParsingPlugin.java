@@ -197,7 +197,13 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                     throw new AssertionError("Should not happen to have BCI chain longer than 1.");
                 }
                 inline = inlineDuringParsingState.children.get(callSite);
-                assert inline != null : "We must always inline all the methods to get a constant, field load, or new instance.";
+                if (inline == null) {
+                    /*
+                     * We must always inline all the methods to get a constant, field load, or new
+                     * instance.
+                     */
+                    inline = new InvocationResultInline(callSite, toAnalysisMethod(callee));
+                }
             }
         }
 
