@@ -24,8 +24,6 @@
  */
 package com.oracle.svm.hosted.snippets;
 
-import static com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.getCallingContextSubset;
-
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
@@ -282,7 +280,7 @@ public class ReflectionPlugins {
             ImageSingletons.lookup(ReflectionPluginRegistry.class).add(context.getCallingContext(), element);
         }
         /* We are during compilation, we only intrinsify if intrinsified during analysis. */
-        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(getCallingContextSubset(context, context.getDepth()));
+        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(context.getCallingContext());
     }
 
     private static <T> boolean isDeleted(T element, MetaAccessProvider metaAccess) {

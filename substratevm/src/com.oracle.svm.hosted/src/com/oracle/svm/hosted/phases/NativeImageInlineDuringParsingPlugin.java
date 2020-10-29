@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import org.graalvm.collections.EconomicMap;
 import org.graalvm.collections.Pair;
 import org.graalvm.compiler.core.common.PermanentBailoutException;
 import org.graalvm.compiler.debug.DebugContext;
@@ -159,8 +158,8 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         }
 
         InvocationResult inline = null;
+        CallSite callSite = new CallSite(b.getCallingContext(), toAnalysisMethod(callee));
         if (b.getDepth() == 0) {
-            CallSite callSite = new CallSite(b.getCallingContext(), toAnalysisMethod(callee));
             if (analysis) {
                 BigBang bb = ((AnalysisBytecodeParser) b).bb;
                 DebugContext debug = b.getDebug();
@@ -179,20 +178,16 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                 inline = NativeImageInlineDuringParsingPlugin.support().inlineData.get(callSite);
             }
         } else {
-            CallSite callSite = new CallSite(getCallingContextSubset(b, b.getDepth()), toAnalysisMethod(callee));
-            if (callSite.bci.length > 1) {
-                throw new AssertionError("Should not happen to have BCI chain longer than 1.");
-            }
-            inline = ((SharedBytecodeParser) b.getParent()).inlineDuringParsingState.children.get(callSite);
-            VMError.guarantee(inline != null, "Missing analysis result.");
+            /*
+             * We already decided to inline the first callee into the root method, so now
+             * recursively inline everything.
+             */
+            inline = new InvocationResultInline(callSite, toAnalysisMethod(callee));
         }
 
         if (inline instanceof InvocationResultInline) {
             InvocationResultInline inlineData = (InvocationResultInline) inline;
             VMError.guarantee(inlineData.callee.equals(toAnalysisMethod(callee)));
-
-            VMError.guarantee(((SharedBytecodeParser) b).inlineDuringParsingState == null);
-            ((SharedBytecodeParser) b).inlineDuringParsingState = inlineData;
 
             if (analysis) {
                 AnalysisMethod aMethod = (AnalysisMethod) callee;
@@ -224,25 +219,6 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                          * canonicalizations for buildRuntimeMetadata.
                          */
                         GuardedAnnotationAccess.isAnnotationPresent(caller, DeoptTest.class);
-    }
-
-    @Override
-    public void notifyBeforeInline(GraphBuilderContext b, ResolvedJavaMethod methodToInline) {
-        SharedBytecodeParser parser = (SharedBytecodeParser) b;
-        InvocationResultInline inlineData = parser.inlineDuringParsingState;
-        if (inlineData != null) {
-            VMError.guarantee(inlineData.callee.equals(toAnalysisMethod(methodToInline)));
-        }
-    }
-
-    @Override
-    public void notifyAfterInline(GraphBuilderContext b, ResolvedJavaMethod methodToInline) {
-        SharedBytecodeParser parser = (SharedBytecodeParser) b;
-        InvocationResultInline inlineData = parser.inlineDuringParsingState;
-        if (inlineData != null) {
-            VMError.guarantee(inlineData.callee.equals(toAnalysisMethod(methodToInline)));
-            parser.inlineDuringParsingState = null;
-        }
     }
 
     public static NativeImageInlineDuringParsingSupport support() {
@@ -332,27 +308,19 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
     public static class InvocationResultInline extends InvocationResult {
         final CallSite callSite;
         final AnalysisMethod callee;
-        final EconomicMap<CallSite, InvocationResultInline> children;
 
         public InvocationResultInline(CallSite callSite, AnalysisMethod callee) {
             this.callSite = callSite;
             this.callee = callee;
-            this.children = EconomicMap.create();
         }
 
         @Override
         public String toString() {
-            return append(new StringBuilder(), "").toString();
+            return append(new StringBuilder()).toString();
         }
 
-        private StringBuilder append(StringBuilder sb, String indentation) {
-            sb.append(callSite).append(" -> ").append(callee.format("%h.%n(%p)"));
-            String newIndentation = indentation + "  ";
-            for (InvocationResultInline child : children.getValues()) {
-                sb.append(System.lineSeparator()).append(newIndentation);
-                child.append(sb, newIndentation);
-            }
-            return sb;
+        private StringBuilder append(StringBuilder sb) {
+            return sb.append(callSite).append(" -> ").append(callee.format("%h.%n(%p)"));
         }
 
         @Override
@@ -365,13 +333,12 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
             }
             InvocationResultInline that = (InvocationResultInline) o;
             return callSite.equals(that.callSite) &&
-                            Objects.equals(callee, that.callee) &&
-                            children.equals(that.children);
+                            Objects.equals(callee, that.callee);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(callSite, callee, children);
+            return Objects.hash(callSite, callee);
         }
     }
 }
@@ -423,10 +390,8 @@ class TrivialMethodDetector {
             return InvocationResult.ANALYSIS_TOO_COMPLICATED;
         }
 
-        TrivialChildrenInline methodState = new TrivialChildrenInline(new InvocationResultInline(callSite, method));
-
         GraphBuilderConfiguration graphBuilderConfig = prototypeGraphBuilderConfig.copy();
-        graphBuilderConfig.getPlugins().appendInlineInvokePlugin(methodState);
+        graphBuilderConfig.getPlugins().appendInlineInvokePlugin(new TrivialChildrenInline());
 
         StructuredGraph graph = new StructuredGraph.Builder(options, debug).method(method).build();
 
@@ -440,7 +405,7 @@ class TrivialMethodDetector {
             }
 
             debug.dump(DebugContext.VERBOSE_LEVEL, graph, "InlineDuringParsingAnalysis successful");
-            return methodState.result;
+            return new InvocationResultInline(callSite, method);
         } catch (Throwable ex) {
             debug.dump(DebugContext.VERBOSE_LEVEL, graph, "InlineDuringParsingAnalysis failed with %s", ex);
             /*
@@ -485,7 +450,7 @@ class TrivialMethodDetector {
                 }
             } else if (node instanceof NewArrayNode) {
                 /*
-                 * It's ok to have an array of constants or constant object. We don't allow more of
+                 * It's ok to have an array of constants. We don't allow more of
                  * this nodes because the analysis can go too far.
                  */
                 if (!detectSingleElement) {
@@ -500,14 +465,9 @@ class TrivialMethodDetector {
     }
 
     /**
-     * Inline trivial invokes (children). The result is used in {@link #analyzeMethod}.
+     * Inline trivial invokes (children).
      */
     class TrivialChildrenInline implements InlineInvokePlugin {
-        final InvocationResultInline result;
-
-        TrivialChildrenInline(InvocationResultInline result) {
-            this.result = result;
-        }
 
         @Override
         public InlineInfo shouldInlineInvoke(GraphBuilderContext b, ResolvedJavaMethod callee, ValueNode[] args) {
@@ -519,12 +479,6 @@ class TrivialMethodDetector {
             InvocationResult inline = analyzeMethod(callSite, (AnalysisMethod) callee);
 
             if (inline instanceof InvocationResultInline) {
-                VMError.guarantee(b.getDepth() == 0, "Always parsing root method.");
-                InvocationResultInline inlineData = (InvocationResultInline) inline;
-                if (result.children.containsKey(inlineData.callSite)) {
-                    throw new TrivialMethodDetectorBailoutException("Invoke already registered: " + inlineData.callSite);
-                }
-                result.children.put(inlineData.callSite, inlineData);
                 return InlineInfo.createStandardInlineInfo(callee);
             } else {
                 return null;

@@ -54,9 +54,6 @@ public class NativeImageInlineDuringParsingSupport {
                 if (!(invocationResultInline1.equals(invocationResultInline2))) {
                     throw VMError.shouldNotReachHere("New result (" + invocationResultInline1 + ") different than the previous (" +
                                     invocationResultInline2 + ")");
-                } else {
-                    throw VMError.shouldNotReachHere("New result (" + invocationResultInline1 + ") is the same as the previous  (" +
-                                    invocationResultInline2 + ")");
                 }
             } else if (value instanceof NativeImageInlineDuringParsingPlugin.InvocationResultInline || existingResult instanceof NativeImageInlineDuringParsingPlugin.InvocationResultInline) {
                 throw VMError.shouldNotReachHere("New result (" + value + ") different than the previous (" +
