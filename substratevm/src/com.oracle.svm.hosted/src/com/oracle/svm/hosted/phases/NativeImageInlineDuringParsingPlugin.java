@@ -158,6 +158,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
     }
 
     @Override
+    @SuppressWarnings("try")
     public InlineInfo shouldInlineInvoke(GraphBuilderContext b, ResolvedJavaMethod callee, ValueNode[] args) {
         ResolvedJavaMethod caller = b.getMethod();
         if (inliningBeforeAnalysisSupported(b, callee, caller)) {
