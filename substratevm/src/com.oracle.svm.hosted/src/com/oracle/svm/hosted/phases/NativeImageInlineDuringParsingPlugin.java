@@ -69,6 +69,7 @@ import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
 import com.oracle.graal.pointsto.meta.AnalysisType;
 import com.oracle.graal.pointsto.meta.HostedProviders;
+import com.oracle.svm.core.annotate.DeoptTest;
 import com.oracle.svm.core.annotate.NeverInline;
 import com.oracle.svm.core.annotate.NeverInlineTrivial;
 import com.oracle.svm.core.annotate.RestrictHeapAccess;
@@ -228,7 +229,15 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         return b.parsingIntrinsic() ||
                         GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInline.class) || GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInlineTrivial.class) ||
                         GuardedAnnotationAccess.isAnnotationPresent(callee, Uninterruptible.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, Uninterruptible.class) ||
-                        GuardedAnnotationAccess.isAnnotationPresent(callee, RestrictHeapAccess.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, RestrictHeapAccess.class);
+                        GuardedAnnotationAccess.isAnnotationPresent(callee, RestrictHeapAccess.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, RestrictHeapAccess.class) ||
+                        /*
+                         * Canonicalization during inlining folds to a constant in analysis, but not
+                         * for
+                         * com.oracle.svm.hosted.image.NativeImageCodeCache.buildRuntimeMetadata.
+                         * Either we need to re-use the analysis graphs or we have to apply the same
+                         * canonicalizations for buildRuntimeMetadata.
+                         */
+                        GuardedAnnotationAccess.isAnnotationPresent(caller, DeoptTest.class);
     }
 
     @Override
