@@ -257,10 +257,10 @@ public interface GraphBuilderContext extends GraphBuilderTool {
 
     default List<Pair<ResolvedJavaMethod, Integer>> getCallingContext() {
         List<Pair<ResolvedJavaMethod, Integer>> callingContext = new ArrayList<>();
-        GraphBuilderContext parent = this;
-        while (parent != null) {
-            callingContext.add(Pair.create(parent.getMethod(), parent.bci()));
-            parent = parent.getParent();
+        GraphBuilderContext cur = this;
+        while (cur != null) {
+            callingContext.add(Pair.create(cur.getMethod(), cur.bci()));
+            cur = cur.getParent();
         }
         return callingContext;
     }
