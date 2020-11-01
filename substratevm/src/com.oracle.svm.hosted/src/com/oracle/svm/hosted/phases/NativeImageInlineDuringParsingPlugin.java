@@ -292,16 +292,6 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                 return "Analysis to complicated.";
             }
         };
-
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof InvocationResult;
-        }
-
-        @Override
-        public int hashCode() {
-            return super.hashCode();
-        }
     }
 
     public static class InvocationResultInline extends InvocationResult {
