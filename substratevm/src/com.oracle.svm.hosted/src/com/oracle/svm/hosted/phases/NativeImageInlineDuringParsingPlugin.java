@@ -277,11 +277,11 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
 
         @Override
         public String toString() {
-            StringBuilder res = new StringBuilder();
+            StringBuilder sb = new StringBuilder();
             for (int i = 0; i < caller.length; i++) {
-                res.append(caller[i].format("%h.%n(%p)")).append("@").append(bci[i]).append("\n");
+                sb.append(caller[i].format("%h.%n(%p)")).append("@").append(bci[i]).append("\n");
             }
-            return res.toString();
+            return sb.toString();
         }
     }
 
@@ -315,11 +315,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
 
         @Override
         public String toString() {
-            return append(new StringBuilder()).toString();
-        }
-
-        private StringBuilder append(StringBuilder sb) {
-            return sb.append(callSite).append(" -> ").append(callee.format("%h.%n(%p)"));
+            return callSite + " -> " + callee.format("%h.%n(%p)");
         }
 
         @Override
