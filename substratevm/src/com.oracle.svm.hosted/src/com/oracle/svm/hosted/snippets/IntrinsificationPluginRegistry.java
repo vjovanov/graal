@@ -26,6 +26,8 @@ package com.oracle.svm.hosted.snippets;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.graalvm.nativeimage.ImageSingletons;
+
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
 import com.oracle.svm.core.util.VMError;
 import com.oracle.svm.hosted.meta.HostedMethod;
@@ -68,27 +70,41 @@ public class IntrinsificationPluginRegistry {
     }
 
     private static final Object NULL_MARKER = new Object();
-    protected final ThreadLocal<Boolean> registryDisabled = ThreadLocal.withInitial(() -> false);
-
     /**
      * Contains all the elements intrinsified during analysis. Only these elements will be
      * intrinsified during compilation. We cannot intrinsify an element during compilation if it was
      * not intrinsified during analysis since it can lead to compiling code that was not seen during
      * analysis.
      */
-    private final ConcurrentHashMap<CallSiteDescriptor, Object> analysisElements = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<CallSiteDescriptor, Object> globalAnalysisElements = new ConcurrentHashMap<>();
+    final ThreadLocal<ConcurrentHashMap<CallSiteDescriptor, Object>> threadLocaRegistry = new ThreadLocal<>();
+
+    AutoCloseable startThreadLocalRegistry() {
+        return new AutoCloseable() {
+            {
+                ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocaRegistry.set(new ConcurrentHashMap<>());
+            }
+
+            @Override
+            public void close() {
+                ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocaRegistry.remove();
+            }
+        };
+    }
+
+    private ConcurrentHashMap<CallSiteDescriptor, Object> getAnalysisElements() {
+        return threadLocaRegistry.get() == null ? globalAnalysisElements : threadLocaRegistry.get();
+    }
 
     public void add(ResolvedJavaMethod method, int bci, Object element) {
-        if (!registryDisabled.get()) {
-            Object nonNullElement = element != null ? element : NULL_MARKER;
-            Object previous = analysisElements.putIfAbsent(new CallSiteDescriptor(method, bci), nonNullElement);
-            VMError.guarantee(previous == null || previous == nonNullElement, "Newly intrinsified element (" + nonNullElement + ") different than the previous (" + previous + ")");
-        }
+        Object nonNullElement = element != null ? element : NULL_MARKER;
+        Object previous = getAnalysisElements().putIfAbsent(new CallSiteDescriptor(method, bci), nonNullElement);
+        VMError.guarantee(previous == null || previous == nonNullElement, "Newly intrinsified element (" + nonNullElement + ") different than the previous (" + previous + ")");
     }
 
     @SuppressWarnings("unchecked")
     public <T> T get(ResolvedJavaMethod method, int bci) {
-        Object nonNullElement = analysisElements.get(new CallSiteDescriptor(method, bci));
+        Object nonNullElement = getAnalysisElements().get(new CallSiteDescriptor(method, bci));
         return nonNullElement != NULL_MARKER ? (T) nonNullElement : null;
     }
 }

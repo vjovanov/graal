@@ -63,12 +63,8 @@ import jdk.vm.ci.meta.ResolvedJavaType;
 public class ReflectionPlugins {
 
     public static class ReflectionPluginRegistry extends IntrinsificationPluginRegistry {
-        public static void setRegistryDisabledForCurrentThread(boolean registryDisabled) {
-            ImageSingletons.lookup(ReflectionPluginRegistry.class).registryDisabled.set(registryDisabled);
-        }
-
-        public static boolean registryDisabledForCurrentThread() {
-            return ImageSingletons.lookup(ReflectionPluginRegistry.class).registryDisabled.get();
+        public static AutoCloseable startThreadLocalReflectionRegistry() {
+            return ImageSingletons.lookup(ReflectionPluginRegistry.class).startThreadLocalRegistry();
         }
     }
 
