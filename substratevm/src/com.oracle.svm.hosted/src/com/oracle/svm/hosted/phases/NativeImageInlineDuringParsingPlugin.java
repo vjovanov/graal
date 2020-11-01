@@ -279,7 +279,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         public String toString() {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < caller.length; i++) {
-                sb.append(caller[i].format("%h.%n(%p)")).append("@").append(bci[i]).append("\n");
+                sb.append(caller[i].format("%h.%n(%p)")).append("@").append(bci[i]).append(System.lineSeparator());
             }
             return sb.toString();
         }
@@ -416,11 +416,9 @@ class TrivialMethodDetector {
      */
     static class MethodNodeTracking extends NodeEventListener {
         boolean detectFrameState;
-        boolean detectSingleElement;
 
         MethodNodeTracking() {
             this.detectFrameState = false;
-            this.detectSingleElement = false;
         }
 
         @Override
@@ -445,14 +443,8 @@ class TrivialMethodDetector {
                 }
             } else if (node instanceof NewArrayNode) {
                 /*
-                 * It's ok to have an array of constants. We don't allow more of this nodes because
-                 * the analysis can go too far.
+                 * It's ok to have an empty array.
                  */
-                if (!detectSingleElement) {
-                    detectSingleElement = true;
-                } else {
-                    throw new TrivialMethodDetectorBailoutException("Only one element allowed: " + node);
-                }
             } else {
                 throw new TrivialMethodDetectorBailoutException("Node not allowed: " + node);
             }
