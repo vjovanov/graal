@@ -81,8 +81,7 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 /**
  * This plugin analyses the graph for the resolved Java method and specifies what should to be
  * inlined during graph parsing before the static analysis. Plugin is searching for the methods that
- * folds to a constant or an array of constants and is also notified {@link #notifyBeforeInline
- * before} and {@link #notifyAfterInline} the inlining.
+ * folds to a constant or an array of constants.
  * <p>
  * Usage: To use this plugin, add option -H:+InlineBeforeAnalysis to the native-image.
  *
@@ -450,8 +449,8 @@ class TrivialMethodDetector {
                 }
             } else if (node instanceof NewArrayNode) {
                 /*
-                 * It's ok to have an array of constants. We don't allow more of
-                 * this nodes because the analysis can go too far.
+                 * It's ok to have an array of constants. We don't allow more of this nodes because
+                 * the analysis can go too far.
                  */
                 if (!detectSingleElement) {
                     detectSingleElement = true;

@@ -2514,13 +2514,13 @@ public class BytecodeParser implements GraphBuilderContext {
 
     protected final void notifyBeforeInline(ResolvedJavaMethod inlinedMethod) {
         for (InlineInvokePlugin plugin : graphBuilderConfig.getPlugins().getInlineInvokePlugins()) {
-            plugin.notifyBeforeInline(this, inlinedMethod);
+            plugin.notifyBeforeInline(inlinedMethod);
         }
     }
 
     protected final void notifyAfterInline(ResolvedJavaMethod inlinedMethod) {
         for (InlineInvokePlugin plugin : graphBuilderConfig.getPlugins().getInlineInvokePlugins()) {
-            plugin.notifyAfterInline(this, inlinedMethod);
+            plugin.notifyAfterInline(inlinedMethod);
         }
     }
 

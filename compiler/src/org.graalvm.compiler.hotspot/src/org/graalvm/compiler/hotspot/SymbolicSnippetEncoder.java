@@ -320,7 +320,7 @@ public class SymbolicSnippetEncoder {
         }
 
         @Override
-        public void notifyAfterInline(GraphBuilderContext b, ResolvedJavaMethod methodToInline) {
+        public void notifyAfterInline(ResolvedJavaMethod methodToInline) {
             assert methodToInline.getAnnotation(Fold.class) == null : methodToInline;
         }
     }
