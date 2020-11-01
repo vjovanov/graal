@@ -1140,8 +1140,7 @@ public class NativeImageGenerator {
         SubstrateReplacements replacements = (SubstrateReplacements) providers.getReplacements();
         plugins.appendInlineInvokePlugin(replacements);
 
-        if (NativeImageInlineDuringParsingPlugin.Options.InlineBeforeAnalysis.getValue() &&
-                        !ImageSingletons.lookup(NativeImageInlineDuringParsingSupport.class).isNativeImageInlineDuringParsingDisabled()) {
+        if (nativeImageInlineDuringParsingEnabled()) {
             NativeImageInlineDuringParsingPlugin nativeImageInlineDuringParsingPlugin = new NativeImageInlineDuringParsingPlugin(analysis, providers);
             plugins.appendInlineInvokePlugin(nativeImageInlineDuringParsingPlugin);
         }
@@ -1234,6 +1233,12 @@ public class NativeImageGenerator {
                 ((HostedProviders) backend.getProviders()).setGraphBuilderPlugins(plugins);
             }
         }
+    }
+
+    private static boolean nativeImageInlineDuringParsingEnabled() {
+        return NativeImageInlineDuringParsingPlugin.Options.InlineBeforeAnalysis.getValue() &&
+                        !ImageSingletons.lookup(NativeImageInlineDuringParsingSupport.class).isNativeImageInlineDuringParsingDisabled() &&
+                        !DeoptTester.Options.DeoptimizeAll.getValue();
     }
 
     @SuppressWarnings("try")
