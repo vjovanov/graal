@@ -57,7 +57,6 @@ import org.graalvm.compiler.word.WordTypes;
 import org.graalvm.nativeimage.ImageSingletons;
 import org.graalvm.util.GuardedAnnotationAccess;
 
-import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
 import com.oracle.graal.pointsto.meta.AnalysisType;
 import com.oracle.graal.pointsto.meta.HostedProviders;
@@ -160,11 +159,10 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         CallSite callSite = new CallSite(b.getCallingContext(), toAnalysisMethod(callee));
         if (b.getDepth() == 0) {
             if (analysis) {
-                BigBang bb = ((AnalysisBytecodeParser) b).bb;
                 DebugContext debug = b.getDebug();
                 try (DebugContext.Scope ignored = debug.scope("TrivialMethodDetectorAnalysis", this)) {
                     ReflectionPlugins.ReflectionPluginRegistry.setRegistryDisabledForCurrentThread(true);
-                    TrivialMethodDetector detector = new TrivialMethodDetector(bb, providers, ((SharedBytecodeParser) b).getGraphBuilderConfig(), b.getOptions(), b.getDebug());
+                    TrivialMethodDetector detector = new TrivialMethodDetector(providers, ((SharedBytecodeParser) b).getGraphBuilderConfig(), b.getOptions(), b.getDebug());
                     InvocationResult newResult = detector.analyzeMethod(callSite, (AnalysisMethod) callee);
                     NativeImageInlineDuringParsingPlugin.support().add(callSite, newResult);
                     inline = newResult;
@@ -328,14 +326,12 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
  */
 class TrivialMethodDetector {
 
-    private final BigBang bb;
     private final HostedProviders providers;
     private final GraphBuilderConfiguration prototypeGraphBuilderConfig;
     private final OptionValues options;
     private final DebugContext debug;
 
-    TrivialMethodDetector(BigBang bb, HostedProviders providers, GraphBuilderConfiguration originalGraphBuilderConfig, OptionValues options, DebugContext debug) {
-        this.bb = bb;
+    TrivialMethodDetector(HostedProviders providers, GraphBuilderConfiguration originalGraphBuilderConfig, OptionValues options, DebugContext debug) {
         this.debug = debug;
         this.prototypeGraphBuilderConfig = makePrototypeGraphBuilderConfig(originalGraphBuilderConfig);
         this.options = options;
@@ -377,7 +373,7 @@ class TrivialMethodDetector {
 
         try (DebugContext.Scope ignored = debug.scope("InlineDuringParsingAnalysis", graph, method, this)) {
 
-            TrivialMethodDetectorGraphBuilderPhase builderPhase = new TrivialMethodDetectorGraphBuilderPhase(bb, providers, graphBuilderConfig, OptimisticOptimizations.NONE, null,
+            TrivialMethodDetectorGraphBuilderPhase builderPhase = new TrivialMethodDetectorGraphBuilderPhase(providers, graphBuilderConfig, OptimisticOptimizations.NONE, null,
                             providers.getWordTypes());
 
             try (NodeEventScope ignored1 = graph.trackNodeEvents(new MethodNodeTracking())) {
@@ -479,22 +475,22 @@ class TrivialMethodDetectorBailoutException extends PermanentBailoutException {
 
 class TrivialMethodDetectorGraphBuilderPhase extends AnalysisGraphBuilderPhase {
 
-    TrivialMethodDetectorGraphBuilderPhase(BigBang bb, Providers providers, GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts,
+    TrivialMethodDetectorGraphBuilderPhase(Providers providers, GraphBuilderConfiguration graphBuilderConfig, OptimisticOptimizations optimisticOpts,
                     IntrinsicContext initialIntrinsicContext, WordTypes wordTypes) {
-        super(bb, providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, wordTypes);
+        super(providers, graphBuilderConfig, optimisticOpts, initialIntrinsicContext, wordTypes);
     }
 
     @Override
     protected BytecodeParser createBytecodeParser(StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI, IntrinsicContext intrinsicContext) {
-        return new TrivialMethodDetectorBytecodeParser(bb, this, graph, parent, method, entryBCI, intrinsicContext);
+        return new TrivialMethodDetectorBytecodeParser(this, graph, parent, method, entryBCI, intrinsicContext);
     }
 }
 
 class TrivialMethodDetectorBytecodeParser extends AnalysisBytecodeParser {
-    protected TrivialMethodDetectorBytecodeParser(BigBang bb, GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method,
+    protected TrivialMethodDetectorBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method,
                     int entryBCI,
                     IntrinsicContext intrinsicContext) {
-        super(bb, graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext);
+        super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext);
     }
 
     @Override
