@@ -151,7 +151,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
     @SuppressWarnings("try")
     public InlineInfo shouldInlineInvoke(GraphBuilderContext b, ResolvedJavaMethod callee, ValueNode[] args) {
         ResolvedJavaMethod caller = b.getMethod();
-        if (inliningBeforeAnalysisNotSupported(b, callee, caller)) {
+        if (inliningBeforeAnalysisNotAllowed(b, callee, caller)) {
             return null;
         }
 
@@ -203,7 +203,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         }
     }
 
-    static boolean inliningBeforeAnalysisNotSupported(GraphBuilderContext b, ResolvedJavaMethod callee, ResolvedJavaMethod caller) {
+    static boolean inliningBeforeAnalysisNotAllowed(GraphBuilderContext b, ResolvedJavaMethod callee, ResolvedJavaMethod caller) {
         return b.parsingIntrinsic() ||
                         GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInline.class) || GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInlineTrivial.class) ||
                         GuardedAnnotationAccess.isAnnotationPresent(callee, Uninterruptible.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, Uninterruptible.class) ||
@@ -216,25 +216,13 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                          * canonicalizations for buildRuntimeMetadata.
                          */
                         GuardedAnnotationAccess.isAnnotationPresent(caller, DeoptTest.class) ||
-                        /*
-                         * Inlining depth check.
-                         */
                         b.getDepth() > BytecodeParserOptions.InlineDuringParsingMaxDepth.getValue(b.getOptions()) ||
-                        /*
-                         * Recursion check.
-                         */
-                        recursiveCall(b, callee);
+                        isRecursiveCall(b, callee);
 
     }
 
-    public static boolean recursiveCall(GraphBuilderContext b, ResolvedJavaMethod callee) {
-        List<Pair<ResolvedJavaMethod, Integer>> context = b.getCallingContext();
-        for (Pair<ResolvedJavaMethod, Integer> resolvedPair : context) {
-            if (resolvedPair.getLeft().equals(callee)) {
-                return true;
-            }
-        }
-        return false;
+    private static boolean isRecursiveCall(GraphBuilderContext b, ResolvedJavaMethod callee) {
+        return b.getCallingContext().stream().map(Pair::getLeft).anyMatch(caller -> caller.equals(callee));
     }
 
     public static NativeImageInlineDuringParsingSupport support() {
@@ -310,7 +298,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         final CallSite callSite;
         final AnalysisMethod callee;
 
-        public InvocationResultInline(CallSite callSite, AnalysisMethod callee) {
+        InvocationResultInline(CallSite callSite, AnalysisMethod callee) {
             this.callSite = callSite;
             this.callee = callee;
         }
@@ -454,7 +442,7 @@ class TrivialMethodDetector {
 
         @Override
         public InlineInfo shouldInlineInvoke(GraphBuilderContext b, ResolvedJavaMethod callee, ValueNode[] args) {
-            if (NativeImageInlineDuringParsingPlugin.inliningBeforeAnalysisNotSupported(b, callee, b.getMethod())) {
+            if (NativeImageInlineDuringParsingPlugin.inliningBeforeAnalysisNotAllowed(b, callee, b.getMethod())) {
                 throw new TrivialMethodDetectorBailoutException("Can't inline: " + callee);
             }
 
@@ -502,7 +490,7 @@ class TrivialMethodDetectorGraphBuilderPhase extends AnalysisGraphBuilderPhase {
 }
 
 class TrivialMethodDetectorBytecodeParser extends AnalysisBytecodeParser {
-    protected TrivialMethodDetectorBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method,
+    TrivialMethodDetectorBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method,
                     int entryBCI,
                     IntrinsicContext intrinsicContext) {
         super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext);
