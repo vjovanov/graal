@@ -30,6 +30,8 @@ import java.util.Objects;
 
 import org.graalvm.collections.Pair;
 import org.graalvm.compiler.core.common.PermanentBailoutException;
+import org.graalvm.compiler.core.common.type.Stamp;
+import org.graalvm.compiler.core.common.type.StampPair;
 import org.graalvm.compiler.debug.DebugContext;
 import org.graalvm.compiler.graph.Graph.NodeEventListener;
 import org.graalvm.compiler.graph.Graph.NodeEventScope;
@@ -39,15 +41,24 @@ import org.graalvm.compiler.java.BytecodeParserOptions;
 import org.graalvm.compiler.java.GraphBuilderPhase;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.FrameState;
+import org.graalvm.compiler.nodes.InvokeNode;
+import org.graalvm.compiler.nodes.NodeView;
 import org.graalvm.compiler.nodes.ParameterNode;
 import org.graalvm.compiler.nodes.ReturnNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
 import org.graalvm.compiler.nodes.ValueNode;
+import org.graalvm.compiler.nodes.calc.FloatingNode;
 import org.graalvm.compiler.nodes.graphbuilderconf.GraphBuilderConfiguration;
 import org.graalvm.compiler.nodes.graphbuilderconf.GraphBuilderContext;
+import org.graalvm.compiler.nodes.graphbuilderconf.GraphBuilderTool;
 import org.graalvm.compiler.nodes.graphbuilderconf.InlineInvokePlugin;
 import org.graalvm.compiler.nodes.graphbuilderconf.IntrinsicContext;
+import org.graalvm.compiler.nodes.graphbuilderconf.ParameterPlugin;
 import org.graalvm.compiler.nodes.java.LoadFieldNode;
+import org.graalvm.compiler.nodes.java.NewArrayNode;
+import org.graalvm.compiler.nodes.java.NewInstanceNode;
+import org.graalvm.compiler.nodes.java.StoreFieldNode;
+import org.graalvm.compiler.nodes.spi.UncheckedInterfaceProvider;
 import org.graalvm.compiler.nodes.type.StampTool;
 import org.graalvm.compiler.options.Option;
 import org.graalvm.compiler.options.OptionValues;
@@ -163,7 +174,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                 try (DebugContext.Scope ignored = debug.scope("TrivialMethodDetectorAnalysis", this);
                                 AutoCloseable ignored1 = ReflectionPlugins.ReflectionPluginRegistry.startThreadLocalReflectionRegistry()) {
                     TrivialMethodDetector detector = new TrivialMethodDetector(providers, ((SharedBytecodeParser) b).getGraphBuilderConfig(), b.getOptions(), b.getDebug());
-                    InvocationResult newResult = detector.analyzeMethod(callSite, (AnalysisMethod) callee);
+                    InvocationResult newResult = detector.analyzeMethod(callSite, (AnalysisMethod) callee, args);
                     NativeImageInlineDuringParsingPlugin.support().add(callSite, newResult);
                     inline = newResult;
                 } catch (Throwable ex) {
@@ -345,7 +356,6 @@ class TrivialMethodDetector {
 
     private static GraphBuilderConfiguration makePrototypeGraphBuilderConfig(GraphBuilderConfiguration originalGraphBuilderConfig) {
         GraphBuilderConfiguration result = originalGraphBuilderConfig.copy();
-
         result.getPlugins().clearInlineInvokePlugins();
         for (InlineInvokePlugin inlineInvokePlugin : originalGraphBuilderConfig.getPlugins().getInlineInvokePlugins()) {
             if (!(inlineInvokePlugin instanceof NativeImageInlineDuringParsingPlugin)) {
@@ -356,7 +366,7 @@ class TrivialMethodDetector {
     }
 
     @SuppressWarnings("try")
-    InvocationResult analyzeMethod(CallSite callSite, AnalysisMethod method) {
+    InvocationResult analyzeMethod(CallSite callSite, AnalysisMethod method, ValueNode[] args) {
         if (!method.hasBytecodes()) {
             /* Native method. */
             return InvocationResult.ANALYSIS_TOO_COMPLICATED;
@@ -373,6 +383,8 @@ class TrivialMethodDetector {
 
         GraphBuilderConfiguration graphBuilderConfig = prototypeGraphBuilderConfig.copy();
         graphBuilderConfig.getPlugins().appendInlineInvokePlugin(new TrivialChildrenInline());
+        graphBuilderConfig.getPlugins().appendParameterPlugin(new TrivialMethodDetectorParameterPlugin(args));
+        MethodNodeTracking methodNodeTracking = new MethodNodeTracking();
 
         StructuredGraph graph = new StructuredGraph.Builder(options, debug).method(method).build();
 
@@ -381,12 +393,16 @@ class TrivialMethodDetector {
             TrivialMethodDetectorGraphBuilderPhase builderPhase = new TrivialMethodDetectorGraphBuilderPhase(providers, graphBuilderConfig, OptimisticOptimizations.NONE, null,
                             providers.getWordTypes());
 
-            try (NodeEventScope ignored1 = graph.trackNodeEvents(new MethodNodeTracking())) {
+            try (NodeEventScope ignored1 = graph.trackNodeEvents(methodNodeTracking)) {
                 builderPhase.apply(graph);
             }
 
             debug.dump(DebugContext.VERBOSE_LEVEL, graph, "InlineDuringParsingAnalysis successful");
-            return new InvocationResultInline(callSite, method);
+            if (methodNodeTracking.analyzeGraph()) {
+                return new InvocationResultInline(callSite, method);
+            } else {
+                return InvocationResult.ANALYSIS_TOO_COMPLICATED;
+            }
         } catch (Throwable ex) {
             debug.dump(DebugContext.VERBOSE_LEVEL, graph, "InlineDuringParsingAnalysis failed with %s", ex);
             /*
@@ -402,17 +418,27 @@ class TrivialMethodDetector {
      */
     static class MethodNodeTracking extends NodeEventListener {
         boolean detectFrameState;
+        private boolean hasInvokes;
+        private boolean hasStoreField;
 
         MethodNodeTracking() {
             this.detectFrameState = false;
+            this.hasInvokes = false;
+            this.hasStoreField = false;
+        }
+
+        public boolean analyzeGraph() {
+            return !hasInvokes && !hasStoreField && !detectFrameState;
         }
 
         @Override
         public void nodeAdded(Node node) {
             if (node instanceof ConstantNode) {
                 /* An unlimited amount of constants is allowed. */
+                /* Nothing to do, an unlimited amount of constants is allowed. We like constants. */
             } else if (node instanceof ParameterNode) {
                 /* Nothing to do, an unlimited amount of parameters is allowed. */
+                /* Nothing to do. */
             } else if (node instanceof ReturnNode) {
                 /*
                  * Nothing to do, returning a value is fine. We don't allow control flow so there
@@ -421,14 +447,23 @@ class TrivialMethodDetector {
             } else if (node instanceof LoadFieldNode) {
                 /* Nothing to do, it's ok to read a static or instance field. */
             } else if (node instanceof FrameState) {
-                if (!detectFrameState) {
-                    assert ((FrameState) node).bci == 0 : "We assume the only frame state is for the start node. BCI is " + ((FrameState) node).bci;
-                    detectFrameState = true;
+                if (((FrameState) node).bci == 0) {
+                    /* Nothing to do, it's ok to have frame state for the start node. */
                 } else {
-                    throw new TrivialMethodDetectorBailoutException("Only frame state for the start node is allowed: " + node);
+                    /* We go further in the analysis, but finally not inline this callee. */
+                    detectFrameState = true;
                 }
+            } else if (node instanceof InvokeNode) {
+                /* We go further in the analysis, but finally not inline this callee. */
+                hasInvokes = true;
+            } else if (node instanceof StoreFieldNode) {
+                /* We go further in the analysis, but finally not inline this callee. */
+                hasStoreField = true;
+            } else if (node instanceof NewInstanceNode || node instanceof NewArrayNode) {
+                /* Nothing to do. */
             } else {
                 throw new TrivialMethodDetectorBailoutException("Node not allowed: " + node);
+
             }
         }
     }
@@ -445,7 +480,7 @@ class TrivialMethodDetector {
             }
 
             CallSite callSite = new CallSite(b.getCallingContext(), NativeImageInlineDuringParsingPlugin.toAnalysisMethod(callee));
-            InvocationResult inline = analyzeMethod(callSite, (AnalysisMethod) callee);
+            InvocationResult inline = analyzeMethod(callSite, (AnalysisMethod) callee, args);
 
             if (inline instanceof InvocationResultInline) {
                 return InlineInfo.createStandardInlineInfo(callee);
@@ -500,5 +535,31 @@ class TrivialMethodDetectorBytecodeParser extends AnalysisBytecodeParser {
             throw new TrivialMethodDetectorBailoutException("Null check inside exception handler");
         }
         return false;
+    }
+}
+
+class TrivialMethodDetectorParameterPlugin implements ParameterPlugin {
+
+    private final ValueNode[] args;
+
+    TrivialMethodDetectorParameterPlugin(ValueNode[] args) {
+        this.args = args;
+    }
+
+    @Override
+    public FloatingNode interceptParameter(GraphBuilderTool b, int index, StampPair stamp) {
+        ValueNode arg = args[index];
+        Stamp argStamp = arg.stamp(NodeView.DEFAULT);
+        if (arg.isConstant()) {
+            return new ConstantNode(arg.asConstant(), argStamp);
+        } else {
+            StampPair stampPair;
+            if (arg instanceof UncheckedInterfaceProvider) {
+                stampPair = StampPair.create(argStamp, ((UncheckedInterfaceProvider) arg).uncheckedStamp());
+            } else {
+                stampPair = StampPair.createSingle(argStamp);
+            }
+            return new ParameterNode(index, stampPair);
+        }
     }
 }

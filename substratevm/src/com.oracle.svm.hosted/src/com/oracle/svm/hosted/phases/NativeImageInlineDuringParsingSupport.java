@@ -26,8 +26,6 @@ package com.oracle.svm.hosted.phases;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.oracle.svm.core.util.VMError;
-
 public class NativeImageInlineDuringParsingSupport {
     private boolean nativeImageInlineDuringParsingDisabled;
 
@@ -46,19 +44,6 @@ public class NativeImageInlineDuringParsingSupport {
     }
 
     void add(NativeImageInlineDuringParsingPlugin.CallSite callSite, NativeImageInlineDuringParsingPlugin.InvocationResult value) {
-        NativeImageInlineDuringParsingPlugin.InvocationResult existingResult = inlineData.putIfAbsent(callSite, value);
-        if (existingResult != null) {
-            if (value instanceof NativeImageInlineDuringParsingPlugin.InvocationResultInline && existingResult instanceof NativeImageInlineDuringParsingPlugin.InvocationResultInline) {
-                NativeImageInlineDuringParsingPlugin.InvocationResultInline invocationResultInline1 = (NativeImageInlineDuringParsingPlugin.InvocationResultInline) value;
-                NativeImageInlineDuringParsingPlugin.InvocationResultInline invocationResultInline2 = (NativeImageInlineDuringParsingPlugin.InvocationResultInline) existingResult;
-                if (!(invocationResultInline1.equals(invocationResultInline2))) {
-                    throw VMError.shouldNotReachHere("New result (" + invocationResultInline1 + ") different than the previous (" +
-                                    invocationResultInline2 + ")");
-                }
-            } else if (value instanceof NativeImageInlineDuringParsingPlugin.InvocationResultInline || existingResult instanceof NativeImageInlineDuringParsingPlugin.InvocationResultInline) {
-                throw VMError.shouldNotReachHere("New result (" + value + ") different than the previous (" +
-                                existingResult + ")");
-            }
-        }
+        inlineData.putIfAbsent(callSite, value);
     }
 }
