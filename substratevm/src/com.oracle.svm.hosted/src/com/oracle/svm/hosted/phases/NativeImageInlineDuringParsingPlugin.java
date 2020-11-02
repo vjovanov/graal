@@ -24,7 +24,8 @@
  */
 package com.oracle.svm.hosted.phases;
 
-import java.util.Arrays;
+import static com.oracle.svm.hosted.snippets.IntrinsificationPluginRegistry.CallSiteDescriptor;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -255,47 +256,27 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
      * Stores information about caller method. This information are used in
      * {@link InvocationResultInline}.
      */
-    static final class CallSite {
-        final AnalysisMethod[] caller;
-        final int[] bci;
+    static final class CallSite extends CallSiteDescriptor {
         final AnalysisMethod callee;
 
         CallSite(List<Pair<ResolvedJavaMethod, Integer>> callingContext, AnalysisMethod callee) {
-            int callingContextSize = callingContext.size();
-            this.caller = new AnalysisMethod[callingContextSize];
-            this.bci = new int[callingContextSize];
-            int i = 0;
-            for (Pair<ResolvedJavaMethod, Integer> pair : callingContext) {
-                this.caller[i] = toAnalysisMethod(pair.getLeft());
-                this.bci[i] = pair.getRight();
-                i++;
-            }
+            super(callingContext);
             this.callee = callee;
         }
 
         @Override
         public int hashCode() {
-            return java.util.Arrays.hashCode(caller) ^ java.util.Arrays.hashCode(bci);
+            return super.hashCode() ^ callee.hashCode();
         }
 
         @Override
         public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            } else if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            CallSite other = (CallSite) obj;
-            return Arrays.equals(this.bci, other.bci) && Arrays.equals(this.caller, other.caller) && callee.equals(other.callee);
+            return super.equals(obj) && callee.equals(((CallSite) obj).callee);
         }
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < caller.length; i++) {
-                sb.append(caller[i].format("%h.%n(%p)")).append("@").append(bci[i]).append(System.lineSeparator());
-            }
-            return sb.toString();
+            return super.toString() + callee.format("%h.%n(%p)");
         }
     }
 

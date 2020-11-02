@@ -39,7 +39,7 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 public class IntrinsificationPluginRegistry {
 
-    public static final class CallSiteDescriptor {
+    public static class CallSiteDescriptor {
         private final AnalysisMethod[] caller;
         private final int[] bci;
 
