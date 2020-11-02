@@ -57,7 +57,6 @@ public class AnalysisGraphBuilderPhase extends SharedGraphBuilderPhase {
     }
 
     public static class AnalysisBytecodeParser extends SharedBytecodeParser {
-
         protected AnalysisBytecodeParser(GraphBuilderPhase.Instance graphBuilderInstance, StructuredGraph graph, BytecodeParser parent, ResolvedJavaMethod method, int entryBCI,
                         IntrinsicContext intrinsicContext) {
             super(graphBuilderInstance, graph, parent, method, entryBCI, intrinsicContext, true);

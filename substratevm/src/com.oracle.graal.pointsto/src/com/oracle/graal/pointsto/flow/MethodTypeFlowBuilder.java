@@ -24,6 +24,7 @@
  */
 package com.oracle.graal.pointsto.flow;
 
+import static jdk.vm.ci.common.JVMCIError.guarantee;
 import static jdk.vm.ci.common.JVMCIError.shouldNotReachHere;
 
 import java.lang.reflect.Modifier;
@@ -139,7 +140,6 @@ import com.oracle.graal.pointsto.nodes.AnalysisUnsafePartitionStoreNode;
 import com.oracle.graal.pointsto.nodes.ConvertUnknownValueNode;
 import com.oracle.graal.pointsto.phases.SubstrateIntrinsicGraphBuilder;
 import com.oracle.graal.pointsto.typestate.TypeState;
-import com.oracle.graal.pointsto.util.AnalysisError;
 
 import jdk.vm.ci.code.BytecodePosition;
 import jdk.vm.ci.common.JVMCIError;
@@ -1291,7 +1291,7 @@ public class MethodTypeFlowBuilder {
             } else if (n instanceof InvokeNode || n instanceof InvokeWithExceptionNode) {
                 Invoke invoke = (Invoke) n;
                 if (invoke.callTarget() instanceof MethodCallTargetNode) {
-                    AnalysisError.guarantee(invoke.stateAfter().outerFrameState() == null, "Outer FrameState must be null.");
+                    guarantee(invoke.stateAfter().outerFrameState() == null, "Outer FrameState must be null.");
                     MethodCallTargetNode target = (MethodCallTargetNode) invoke.callTarget();
 
                     // check if the call is allowed
