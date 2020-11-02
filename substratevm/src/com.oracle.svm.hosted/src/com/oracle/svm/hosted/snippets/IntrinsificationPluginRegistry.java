@@ -24,8 +24,11 @@
  */
 package com.oracle.svm.hosted.snippets;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.graalvm.collections.Pair;
 import org.graalvm.nativeimage.ImageSingletons;
 
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
@@ -36,27 +39,43 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 public class IntrinsificationPluginRegistry {
 
-    static final class CallSiteDescriptor {
-        private final AnalysisMethod method;
-        private final int bci;
+    public static final class CallSiteDescriptor {
+        private final AnalysisMethod[] caller;
+        private final int[] bci;
 
-        private CallSiteDescriptor(ResolvedJavaMethod method, int bci) {
-            this.method = toAnalysisMethod(method);
-            this.bci = bci;
+        public CallSiteDescriptor(List<Pair<ResolvedJavaMethod, Integer>> callingContext) {
+            int len = callingContext.size();
+            this.caller = new AnalysisMethod[len];
+            this.bci = new int[len];
+            int i = 0;
+            for (Pair<ResolvedJavaMethod, Integer> pair : callingContext) {
+                this.caller[i] = toAnalysisMethod(pair.getLeft());
+                this.bci[i] = pair.getRight();
+                i++;
+            }
         }
 
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof CallSiteDescriptor) {
                 CallSiteDescriptor other = (CallSiteDescriptor) obj;
-                return other.bci == this.bci && other.method.equals(this.method);
+                return Arrays.equals(this.bci, other.bci) && Arrays.equals(this.caller, other.caller);
             }
             return false;
         }
 
         @Override
         public int hashCode() {
-            return method.hashCode() ^ bci;
+            return java.util.Arrays.hashCode(caller) ^ java.util.Arrays.hashCode(bci);
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < caller.length; i++) {
+                sb.append(caller[i].format("%h.%n(%p)")).append("@").append(bci[i]).append(System.lineSeparator());
+            }
+            return sb.toString();
         }
 
         private static AnalysisMethod toAnalysisMethod(ResolvedJavaMethod method) {
@@ -77,34 +96,34 @@ public class IntrinsificationPluginRegistry {
      * analysis.
      */
     private final ConcurrentHashMap<CallSiteDescriptor, Object> globalAnalysisElements = new ConcurrentHashMap<>();
-    final ThreadLocal<ConcurrentHashMap<CallSiteDescriptor, Object>> threadLocaRegistry = new ThreadLocal<>();
+    final ThreadLocal<ConcurrentHashMap<CallSiteDescriptor, Object>> threadLocalRegistry = new ThreadLocal<>();
 
     AutoCloseable startThreadLocalRegistry() {
         return new AutoCloseable() {
             {
-                ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocaRegistry.set(new ConcurrentHashMap<>());
+                ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocalRegistry.set(new ConcurrentHashMap<>());
             }
 
             @Override
             public void close() {
-                ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocaRegistry.remove();
+                ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocalRegistry.remove();
             }
         };
     }
 
     private ConcurrentHashMap<CallSiteDescriptor, Object> getAnalysisElements() {
-        return threadLocaRegistry.get() == null ? globalAnalysisElements : threadLocaRegistry.get();
+        return threadLocalRegistry.get() == null ? globalAnalysisElements : threadLocalRegistry.get();
     }
 
-    public void add(ResolvedJavaMethod method, int bci, Object element) {
+    public void add(List<Pair<ResolvedJavaMethod, Integer>> callingContext, Object element) {
         Object nonNullElement = element != null ? element : NULL_MARKER;
-        Object previous = getAnalysisElements().putIfAbsent(new CallSiteDescriptor(method, bci), nonNullElement);
+        Object previous = getAnalysisElements().putIfAbsent(new CallSiteDescriptor(callingContext), nonNullElement);
         VMError.guarantee(previous == null || previous == nonNullElement, "Newly intrinsified element (" + nonNullElement + ") different than the previous (" + previous + ")");
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T get(ResolvedJavaMethod method, int bci) {
-        Object nonNullElement = getAnalysisElements().get(new CallSiteDescriptor(method, bci));
+    public <T> T get(List<Pair<ResolvedJavaMethod, Integer>> callingContext) {
+        Object nonNullElement = getAnalysisElements().get(new CallSiteDescriptor(callingContext));
         return nonNullElement != NULL_MARKER ? (T) nonNullElement : null;
     }
 }

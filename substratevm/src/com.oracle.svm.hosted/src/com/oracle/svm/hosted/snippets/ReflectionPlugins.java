@@ -273,10 +273,10 @@ public class ReflectionPlugins {
             }
 
             /* We are during analysis, we should intrinsify and cache the intrinsified object. */
-            ImageSingletons.lookup(ReflectionPluginRegistry.class).add(context.getMethod(), context.bci(), element);
+            ImageSingletons.lookup(ReflectionPluginRegistry.class).add(context.getCallingContext(), element);
         }
         /* We are during compilation, we only intrinsify if intrinsified during analysis. */
-        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(context.getMethod(), context.bci());
+        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(context.getCallingContext());
     }
 
     private static <T> boolean isDeleted(T element, MetaAccessProvider metaAccess) {
