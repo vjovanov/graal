@@ -118,7 +118,7 @@ public class IntrinsificationPluginRegistry {
     public void add(List<Pair<ResolvedJavaMethod, Integer>> callingContext, Object element) {
         Object nonNullElement = element != null ? element : NULL_MARKER;
         Object previous = getAnalysisElements().putIfAbsent(new CallSiteDescriptor(callingContext), nonNullElement);
-        VMError.guarantee(previous == null || previous == nonNullElement, "Newly intrinsified element (" + nonNullElement + ") different than the previous (" + previous + ")");
+        VMError.guarantee(previous == null || previous == nonNullElement, "Newly intrinsified element is different than the previous");
     }
 
     @SuppressWarnings("unchecked")

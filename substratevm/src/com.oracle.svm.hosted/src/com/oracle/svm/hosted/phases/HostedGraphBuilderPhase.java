@@ -175,6 +175,7 @@ class HostedBytecodeParser extends SubstrateBytecodeParser {
     @Override
     protected void parseAndInlineCallee(ResolvedJavaMethod targetMethod, ValueNode[] args, IntrinsicContext calleeIntrinsicContext) {
         if (getMethod().compilationInfo.isDeoptEntry(bci(), false, false)) {
+            assert calleeIntrinsicContext != null : "only inlining replacements";
             /*
              * Replacements use the frame state before the invoke for all nodes that need a state,
              * i.e., we want to re-execute the whole replacement in case of deoptimization.
