@@ -167,10 +167,15 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
             return null;
         }
 
-        InvocationResult inline = null;
+        InvocationResult inline;
         CallSite callSite = new CallSite(b.getCallingContext(), toAnalysisMethod(callee));
         if (b.getDepth() == 0) {
-            if (analysis) {
+            inline = NativeImageInlineDuringParsingPlugin.support().inlineData.get(callSite);
+            /*
+             * If we already seen this call site, just use existing analysis result, we don't want
+             * to change decision.
+             */
+            if (analysis && inline == null) {
                 DebugContext debug = b.getDebug();
                 try (DebugContext.Scope ignored = debug.scope("TrivialMethodDetectorAnalysis", this);
                                 AutoCloseable ignored1 = ReflectionPlugins.ReflectionPluginRegistry.startThreadLocalReflectionRegistry()) {
@@ -181,8 +186,6 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                 } catch (Throwable ex) {
                     debug.handle(ex);
                 }
-            } else {
-                inline = NativeImageInlineDuringParsingPlugin.support().inlineData.get(callSite);
             }
         } else {
             /*
@@ -440,10 +443,16 @@ class TrivialMethodDetector {
                     detectFrameState = true;
                 }
             } else if (node instanceof InvokeNode) {
-                /* We go further in the analysis, but finally not inline this callee. */
+                /*
+                 * We don't inline this method but go further in the analysis to check if any
+                 * callees can be inline into this method.
+                 */
                 hasInvokes = true;
             } else if (node instanceof StoreFieldNode) {
-                /* We go further in the analysis, but finally not inline this callee. */
+                /*
+                 * We don't inline this method but go further in the analysis to check if any
+                 * callees can be inline into this method.
+                 */
                 hasStoreField = true;
             } else if (node instanceof NewInstanceNode || node instanceof NewArrayNode) {
                 /* Nothing to do. */
