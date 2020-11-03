@@ -252,6 +252,10 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
 
     public static List<Pair<ResolvedJavaMethod, Integer>> getCallingContextSubset(GraphBuilderContext b, int depth) {
         List<Pair<ResolvedJavaMethod, Integer>> callingContext = b.getCallingContext();
+        /*
+         * Context always has a pair for a method which bytecode is parsed, so we never get empty
+         * result, even if the depth is zero.
+         */
         return callingContext.subList(0, callingContext.size() - depth);
     }
 

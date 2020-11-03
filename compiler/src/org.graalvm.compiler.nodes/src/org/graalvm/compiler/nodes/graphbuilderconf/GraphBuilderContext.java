@@ -257,6 +257,9 @@ public interface GraphBuilderContext extends GraphBuilderTool {
 
     default List<Pair<ResolvedJavaMethod, Integer>> getCallingContext() {
         List<Pair<ResolvedJavaMethod, Integer>> callingContext = new ArrayList<>();
+        /*
+         * We always add a method which bytecode is parsed, so size of this list is minimum one.
+         */
         GraphBuilderContext cur = this;
         while (cur != null) {
             callingContext.add(Pair.create(cur.getMethod(), cur.bci()));
