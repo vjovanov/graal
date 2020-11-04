@@ -24,7 +24,7 @@
  */
 package com.oracle.svm.hosted.phases;
 
-import static com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.getCallingContextSubset;
+import static com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.getCallingContextOnDepth;
 import static org.graalvm.compiler.nodes.graphbuilderconf.InlineInvokePlugin.InlineInfo.createStandardInlineInfo;
 
 import java.lang.invoke.MethodHandle;
@@ -440,7 +440,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
          * intrinsified during analysis. Otherwise new code that was not seen as reachable by the
          * static analysis would be compiled.
          */
-        if (!analysis && intrinsificationRegistry.get(getCallingContextSubset(b, b.getDepth())) != Boolean.TRUE) {
+        if (!analysis && intrinsificationRegistry.get(getCallingContextOnDepth(b, b.getDepth())) != Boolean.TRUE) {
             reportUnsupportedFeature(b, methodHandleMethod);
             return;
         }

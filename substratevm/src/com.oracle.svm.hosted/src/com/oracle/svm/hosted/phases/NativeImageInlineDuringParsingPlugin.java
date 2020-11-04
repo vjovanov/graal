@@ -42,7 +42,6 @@ import org.graalvm.compiler.java.BytecodeParserOptions;
 import org.graalvm.compiler.java.GraphBuilderPhase;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.FrameState;
-import org.graalvm.compiler.nodes.InvokeNode;
 import org.graalvm.compiler.nodes.NodeView;
 import org.graalvm.compiler.nodes.ParameterNode;
 import org.graalvm.compiler.nodes.ReturnNode;
@@ -250,7 +249,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         }
     }
 
-    public static List<Pair<ResolvedJavaMethod, Integer>> getCallingContextSubset(GraphBuilderContext b, int depth) {
+    public static List<Pair<ResolvedJavaMethod, Integer>> getCallingContextOnDepth(GraphBuilderContext b, int depth) {
         List<Pair<ResolvedJavaMethod, Integer>> callingContext = b.getCallingContext();
         /*
          * Context always has a pair for a method which bytecode is parsed, so we never get empty
@@ -410,18 +409,14 @@ class TrivialMethodDetector {
      * We collect information during graph construction to filter non-trivial methods.
      */
     static class MethodNodeTracking extends NodeEventListener {
-        boolean detectFrameState;
-        private boolean hasInvokes;
         private boolean hasStoreField;
 
         MethodNodeTracking() {
-            this.detectFrameState = false;
-            this.hasInvokes = false;
             this.hasStoreField = false;
         }
 
         public boolean analyzeGraph() {
-            return !hasInvokes && !hasStoreField && !detectFrameState;
+            return !hasStoreField;
         }
 
         @Override
@@ -443,23 +438,20 @@ class TrivialMethodDetector {
                 if (((FrameState) node).bci == 0) {
                     /* Nothing to do, it's ok to have frame state for the start node. */
                 } else {
-                    /* We go further in the analysis, but finally not inline this callee. */
-                    detectFrameState = true;
+                    throw new TrivialMethodDetectorBailoutException("Only frame state for the start node is allowed: " + node);
                 }
-            } else if (node instanceof InvokeNode) {
-                /*
-                 * We don't inline this method but go further in the analysis to check if any
-                 * callees can be inline into this method.
-                 */
-                hasInvokes = true;
             } else if (node instanceof StoreFieldNode) {
                 /*
                  * We don't inline this method but go further in the analysis to check if any
                  * callees can be inline into this method.
                  */
                 hasStoreField = true;
-            } else if (node instanceof NewInstanceNode || node instanceof NewArrayNode) {
-                /* Nothing to do. */
+            } else if (node instanceof NewArrayNode || node instanceof NewInstanceNode) {
+                /*
+                 * We go further in the analysis to check if any callees can be inline into this
+                 * method. If there was non-constant array or object, method won't be inlined
+                 * because of elimination for existing store field nodes.
+                 */
             } else {
                 throw new TrivialMethodDetectorBailoutException("Node not allowed: " + node);
 
