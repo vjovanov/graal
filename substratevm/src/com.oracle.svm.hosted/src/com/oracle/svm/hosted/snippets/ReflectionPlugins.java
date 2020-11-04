@@ -24,7 +24,7 @@
  */
 package com.oracle.svm.hosted.snippets;
 
-import static com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.getCallingContextOnDepth;
+import static com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.getCallingContextAtDepth;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
@@ -275,10 +275,10 @@ public class ReflectionPlugins {
             }
 
             /* We are during analysis, we should intrinsify and cache the intrinsified object. */
-            ImageSingletons.lookup(ReflectionPluginRegistry.class).add(getCallingContextOnDepth(context, context.getDepth()), element);
+            ImageSingletons.lookup(ReflectionPluginRegistry.class).add(getCallingContextAtDepth(context, context.getDepth()), element);
         }
         /* We are during compilation, we only intrinsify if intrinsified during analysis. */
-        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(getCallingContextOnDepth(context, context.getDepth()));
+        return ImageSingletons.lookup(ReflectionPluginRegistry.class).get(getCallingContextAtDepth(context, context.getDepth()));
     }
 
     private static <T> boolean isDeleted(T element, MetaAccessProvider metaAccess) {
