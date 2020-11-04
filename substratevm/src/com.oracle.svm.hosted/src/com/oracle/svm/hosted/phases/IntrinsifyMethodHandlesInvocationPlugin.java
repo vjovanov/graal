@@ -492,7 +492,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
                      * Successfully intrinsified during analysis, remember that we can intrinsify
                      * when parsing for compilation.
                      */
-                    intrinsificationRegistry.add(b.getCallingContext(), Boolean.TRUE);
+                    intrinsificationRegistry.add(getCallingContextOnDepth(b, b.getDepth()), Boolean.TRUE);
                 }
             } catch (AbortTransplantException ex) {
                 /*
