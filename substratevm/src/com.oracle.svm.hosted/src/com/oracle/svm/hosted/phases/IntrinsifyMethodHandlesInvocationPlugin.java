@@ -440,11 +440,20 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
          * intrinsified during analysis. Otherwise new code that was not seen as reachable by the
          * static analysis would be compiled.
          */
-        if (!analysis && intrinsificationRegistry.get(getCallingContextAtDepth(b, b.getDepth())) != Boolean.TRUE) {
-            reportUnsupportedFeature(b, methodHandleMethod);
-            return;
+        if (!analysis) {
+            boolean checkVarHandleMethod = isVarHandleMethod(methodHandleMethod, methodHandleArguments);
+            /*
+             * If the method is the intrinsification root for a VarHandle and we are reading
+             * information at depth bigger than zero, we must use calling context at current depth.
+             * Otherwise, we won't get proper information because of additional callers in the
+             * context.
+             */
+            if ((checkVarHandleMethod && intrinsificationRegistry.get(getCallingContextAtDepth(b, b.getDepth())) != Boolean.TRUE) ||
+                            (!checkVarHandleMethod && intrinsificationRegistry.get(b.getCallingContext()) != Boolean.TRUE)) {
+                reportUnsupportedFeature(b, methodHandleMethod);
+                return;
+            }
         }
-
         Plugins graphBuilderPlugins = new Plugins(parsingProviders.getReplacements().getGraphBuilderPlugins());
 
         registerInvocationPlugins(graphBuilderPlugins.getInvocationPlugins(), replacements);
@@ -492,7 +501,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
                      * Successfully intrinsified during analysis, remember that we can intrinsify
                      * when parsing for compilation.
                      */
-                    intrinsificationRegistry.add(getCallingContextAtDepth(b, b.getDepth()), Boolean.TRUE);
+                    intrinsificationRegistry.add(b.getCallingContext(), Boolean.TRUE);
                 }
             } catch (AbortTransplantException ex) {
                 /*
