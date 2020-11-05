@@ -1235,7 +1235,7 @@ public class NativeImageGenerator {
         }
     }
 
-    private static boolean nativeImageInlineDuringParsingEnabled() {
+    public static boolean nativeImageInlineDuringParsingEnabled() {
         return NativeImageInlineDuringParsingPlugin.Options.InlineBeforeAnalysis.getValue() &&
                         !ImageSingletons.lookup(NativeImageInlineDuringParsingSupport.class).isNativeImageInlineDuringParsingDisabled() &&
                         !DeoptTester.Options.DeoptimizeAll.getValue();
