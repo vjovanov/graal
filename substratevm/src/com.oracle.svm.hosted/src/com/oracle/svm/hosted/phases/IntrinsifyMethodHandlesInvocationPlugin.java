@@ -24,12 +24,12 @@
  */
 package com.oracle.svm.hosted.phases;
 
-import static com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.getCallingContextAtDepth;
 import static org.graalvm.compiler.nodes.graphbuilderconf.InlineInvokePlugin.InlineInfo.createStandardInlineInfo;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import org.graalvm.collections.Pair;
 import org.graalvm.collections.UnmodifiableEconomicMap;
 import org.graalvm.compiler.api.replacements.SnippetReflectionProvider;
 import org.graalvm.compiler.core.common.spi.MetaAccessExtensionProvider;
@@ -440,19 +441,9 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
          * intrinsified during analysis. Otherwise new code that was not seen as reachable by the
          * static analysis would be compiled.
          */
-        if (!analysis) {
-            boolean checkVarHandleMethod = isVarHandleMethod(methodHandleMethod, methodHandleArguments);
-            /*
-             * If the method is the intrinsification root for a VarHandle and we are reading
-             * information at depth bigger than zero, we must use calling context at current depth.
-             * Otherwise, we won't get proper information because of additional callers in the
-             * context.
-             */
-            if ((checkVarHandleMethod && intrinsificationRegistry.get(getCallingContextAtDepth(b, b.getDepth())) != Boolean.TRUE) ||
-                            (!checkVarHandleMethod && intrinsificationRegistry.get(b.getCallingContext()) != Boolean.TRUE)) {
-                reportUnsupportedFeature(b, methodHandleMethod);
-                return;
-            }
+        if (!analysis && intrinsificationRegistry.get(getContext(b)) != Boolean.TRUE) {
+            reportUnsupportedFeature(b, methodHandleMethod);
+            return;
         }
         Plugins graphBuilderPlugins = new Plugins(parsingProviders.getReplacements().getGraphBuilderPlugins());
 
@@ -501,7 +492,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
                      * Successfully intrinsified during analysis, remember that we can intrinsify
                      * when parsing for compilation.
                      */
-                    intrinsificationRegistry.add(b.getCallingContext(), Boolean.TRUE);
+                    intrinsificationRegistry.add(getContext(b), Boolean.TRUE);
                 }
             } catch (AbortTransplantException ex) {
                 /*
@@ -512,6 +503,12 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
         } catch (Throwable ex) {
             throw debug.handle(ex);
         }
+    }
+
+    public List<Pair<ResolvedJavaMethod, Integer>> getContext(GraphBuilderContext b) {
+        List<Pair<ResolvedJavaMethod, Integer>> callingContext = new ArrayList<>();
+        callingContext.add(Pair.create(b.getMethod(), b.bci()));
+        return callingContext;
     }
 
     /**
