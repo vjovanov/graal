@@ -84,6 +84,7 @@ import com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.Invocat
 import com.oracle.svm.hosted.phases.NativeImageInlineDuringParsingPlugin.InvocationResultInline;
 import com.oracle.svm.hosted.phases.SharedGraphBuilderPhase.SharedBytecodeParser;
 import com.oracle.svm.hosted.snippets.ReflectionPlugins;
+import com.oracle.truffle.api.nodes.ExplodeLoop;
 
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 
@@ -148,7 +149,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         public static final HostedOptionKey<Boolean> InlineBeforeAnalysis = new HostedOptionKey<>(true);
 
         @Option(help = "Maximum depth when inlining.")//
-        public static final HostedOptionKey<Integer> InlineBeforeAnalysisMaxDepth = new HostedOptionKey<>(10);
+        public static final HostedOptionKey<Integer> InlineBeforeAnalysisMaxDepth = new HostedOptionKey<>(9);
 
     }
 
@@ -219,6 +220,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
 
     static boolean inliningBeforeAnalysisNotAllowed(GraphBuilderContext b, ResolvedJavaMethod callee, ResolvedJavaMethod caller) {
         return b.parsingIntrinsic() ||
+                        GuardedAnnotationAccess.isAnnotationPresent(callee, ExplodeLoop.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, ExplodeLoop.class) ||
                         GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInline.class) || GuardedAnnotationAccess.isAnnotationPresent(callee, NeverInlineTrivial.class) ||
                         GuardedAnnotationAccess.isAnnotationPresent(callee, Uninterruptible.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, Uninterruptible.class) ||
                         GuardedAnnotationAccess.isAnnotationPresent(callee, RestrictHeapAccess.class) || GuardedAnnotationAccess.isAnnotationPresent(caller, RestrictHeapAccess.class) ||
