@@ -38,7 +38,6 @@ import org.graalvm.compiler.graph.Graph.NodeEventListener;
 import org.graalvm.compiler.graph.Graph.NodeEventScope;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.java.BytecodeParser;
-import org.graalvm.compiler.java.BytecodeParserOptions;
 import org.graalvm.compiler.java.GraphBuilderPhase;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.FrameState;
@@ -148,6 +147,9 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         @Option(help = "Inline methods which folds to constant during parsing before the static analysis.")//
         public static final HostedOptionKey<Boolean> InlineBeforeAnalysis = new HostedOptionKey<>(true);
 
+        @Option(help = "Maximum depth when inlining.")//
+        public static final HostedOptionKey<Integer> InlineBeforeAnalysisMaxDepth = new HostedOptionKey<>(10);
+
     }
 
     private final boolean analysis;
@@ -228,9 +230,8 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                          * canonicalizations for buildRuntimeMetadata.
                          */
                         GuardedAnnotationAccess.isAnnotationPresent(caller, DeoptTest.class) ||
-                        b.getDepth() > BytecodeParserOptions.InlineDuringParsingMaxDepth.getValue(b.getOptions()) ||
+                        b.getDepth() > NativeImageInlineDuringParsingPlugin.Options.InlineBeforeAnalysisMaxDepth.getValue(b.getOptions()) ||
                         isRecursiveCall(b, callee);
-
     }
 
     private static boolean isRecursiveCall(GraphBuilderContext b, ResolvedJavaMethod callee) {
@@ -247,15 +248,6 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
         } else {
             return ((HostedMethod) method).getWrapped();
         }
-    }
-
-    public static List<Pair<ResolvedJavaMethod, Integer>> getCallingContextAtDepth(GraphBuilderContext b, int depth) {
-        List<Pair<ResolvedJavaMethod, Integer>> callingContext = b.getCallingContext();
-        /*
-         * Context always has a pair for a method which bytecode is parsed, so we never get empty
-         * result, even if the depth is zero.
-         */
-        return callingContext.subList(0, callingContext.size() - depth);
     }
 
     /**
