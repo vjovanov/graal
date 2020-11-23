@@ -3973,6 +3973,10 @@ public class BytecodeParser implements GraphBuilderContext {
         return stream.currentBCI();
     }
 
+    public boolean hasBciDuplication() {
+        return blockMap.bciNotUnique();
+    }
+
     public void loadLocal(int index, JavaKind kind) {
         ValueNode value = frameState.loadLocal(index, kind);
         frameState.push(kind, value);

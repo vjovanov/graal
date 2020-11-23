@@ -437,6 +437,13 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
     @SuppressWarnings("try")
     private void processInvokeWithMethodHandle(GraphBuilderContext b, Replacements replacements, ResolvedJavaMethod methodHandleMethod, ValueNode[] methodHandleArguments) {
         /*
+         * We don't want to process invokes if bci is not unique.
+         */
+        if (((BytecodeParser) b).hasBciDuplication()) {
+            return;
+        }
+
+        /*
          * When parsing for compilation, we must not intrinsify method handles that were not
          * intrinsified during analysis. Otherwise new code that was not seen as reachable by the
          * static analysis would be compiled.

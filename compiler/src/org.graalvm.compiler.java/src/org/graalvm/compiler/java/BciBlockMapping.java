@@ -350,6 +350,10 @@ public final class BciBlockMapping implements JavaMethodContext {
             this.successors = new ArrayList<>();
         }
 
+        public boolean bciNotUnique() {
+            return jsrData != null || duplicate;
+        }
+
         public int getStartBci() {
             return startBci;
         }
@@ -709,6 +713,18 @@ public final class BciBlockMapping implements JavaMethodContext {
 
     public BciBlock[] getBlocks() {
         return this.blocks;
+    }
+
+    public boolean bciNotUnique() {
+        if (duplicateBlocks > 0) {
+            return true;
+        }
+        for (BciBlock block : this.blocks) {
+            if (block.bciNotUnique()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

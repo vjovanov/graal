@@ -233,7 +233,11 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                          */
                         GuardedAnnotationAccess.isAnnotationPresent(caller, DeoptTest.class) ||
                         b.getDepth() > NativeImageInlineDuringParsingPlugin.Options.InlineBeforeAnalysisMaxDepth.getValue(b.getOptions()) ||
-                        isRecursiveCall(b, callee);
+                        isRecursiveCall(b, callee) ||
+                        /*
+                         * We don't want to process invokes if bci is not unique.
+                         */
+                        ((BytecodeParser) b).hasBciDuplication();
     }
 
     private static boolean isRecursiveCall(GraphBuilderContext b, ResolvedJavaMethod callee) {
