@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.graalvm.compiler.api.replacements.SnippetReflectionProvider;
+import org.graalvm.compiler.java.BytecodeParser;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.ValueNode;
 import org.graalvm.compiler.nodes.graphbuilderconf.GraphBuilderContext;
@@ -261,6 +262,12 @@ public class ReflectionPlugins {
         if (!hosted) {
             /* We are analyzing the static initializers and should always intrinsify. */
             return element;
+        }
+        /*
+         * We don't intrinsify if bci is not unique.
+         */
+        if (((BytecodeParser) context).hasBciDuplication()) {
+            return null;
         }
         if (analysis) {
             if (isDeleted(element, context.getMetaAccess())) {

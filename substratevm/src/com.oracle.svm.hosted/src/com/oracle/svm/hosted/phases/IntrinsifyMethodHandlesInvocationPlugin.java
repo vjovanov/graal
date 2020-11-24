@@ -29,7 +29,6 @@ import static org.graalvm.compiler.nodes.graphbuilderconf.InlineInvokePlugin.Inl
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -234,7 +233,14 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
          * direct call, otherwise we do not have a single target method.
          */
         if (b.getInvokeKind().isDirect() && (hasMethodHandleArgument(args) || isVarHandleMethod(method, args))) {
-            processInvokeWithMethodHandle(b, universeProviders.getReplacements(), method, args);
+            if (((BytecodeParser) b).hasBciDuplication()) {
+                /*
+                 * If we capture duplication of the bci, we don't process invoke.
+                 */
+                reportUnsupportedFeature(b, method);
+            } else {
+                processInvokeWithMethodHandle(b, universeProviders.getReplacements(), method, args);
+            }
             return true;
 
         } else if (methodHandleType.equals(method.getDeclaringClass()) && methodHandleInvokeMethodNames.contains(method.getName())) {
@@ -437,13 +443,6 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
     @SuppressWarnings("try")
     private void processInvokeWithMethodHandle(GraphBuilderContext b, Replacements replacements, ResolvedJavaMethod methodHandleMethod, ValueNode[] methodHandleArguments) {
         /*
-         * We don't want to process invokes if bci is not unique.
-         */
-        if (((BytecodeParser) b).hasBciDuplication()) {
-            return;
-        }
-
-        /*
          * When parsing for compilation, we must not intrinsify method handles that were not
          * intrinsified during analysis. Otherwise new code that was not seen as reachable by the
          * static analysis would be compiled.
@@ -513,9 +512,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
     }
 
     public List<Pair<ResolvedJavaMethod, Integer>> getContext(GraphBuilderContext b) {
-        List<Pair<ResolvedJavaMethod, Integer>> callingContext = new ArrayList<>();
-        callingContext.add(Pair.create(b.getMethod(), b.bci()));
-        return callingContext;
+        return Collections.singletonList(Pair.create(b.getMethod(), b.bci()));
     }
 
     /**
