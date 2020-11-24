@@ -716,9 +716,6 @@ public final class BciBlockMapping implements JavaMethodContext {
     }
 
     public boolean bciNotUnique() {
-        if (duplicateBlocks > 0) {
-            return true;
-        }
         for (BciBlock block : this.blocks) {
             if (block.bciNotUnique()) {
                 return true;
