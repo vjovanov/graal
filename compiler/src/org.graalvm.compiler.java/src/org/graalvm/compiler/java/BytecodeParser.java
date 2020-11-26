@@ -3973,6 +3973,7 @@ public class BytecodeParser implements GraphBuilderContext {
         return stream.currentBCI();
     }
 
+    @Override
     public boolean hasBciDuplication() {
         return blockMap.bciNotUnique();
     }

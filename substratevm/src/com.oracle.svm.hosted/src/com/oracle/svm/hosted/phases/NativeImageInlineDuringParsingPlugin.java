@@ -237,7 +237,7 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
                         /*
                          * We don't want to process invokes if bci is not unique.
                          */
-                        ((BytecodeParser) b).hasBciDuplication();
+                        b.hasBciDuplication();
     }
 
     private static boolean isRecursiveCall(GraphBuilderContext b, ResolvedJavaMethod callee) {

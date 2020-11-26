@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.graalvm.compiler.api.replacements.SnippetReflectionProvider;
-import org.graalvm.compiler.java.BytecodeParser;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.ValueNode;
 import org.graalvm.compiler.nodes.graphbuilderconf.GraphBuilderContext;
@@ -266,7 +265,7 @@ public class ReflectionPlugins {
         /*
          * We don't intrinsify if bci is not unique.
          */
-        if (((BytecodeParser) context).hasBciDuplication()) {
+        if (context.hasBciDuplication()) {
             return null;
         }
         if (analysis) {

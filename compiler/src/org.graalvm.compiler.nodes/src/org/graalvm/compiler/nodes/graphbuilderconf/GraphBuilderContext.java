@@ -226,6 +226,10 @@ public interface GraphBuilderContext extends GraphBuilderTool {
      */
     int bci();
 
+    default boolean hasBciDuplication() {
+        return false;
+    }
+
     /**
      * Gets the kind of invocation currently being parsed.
      */

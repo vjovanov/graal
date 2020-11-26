@@ -233,7 +233,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
          * direct call, otherwise we do not have a single target method.
          */
         if (b.getInvokeKind().isDirect() && (hasMethodHandleArgument(args) || isVarHandleMethod(method, args))) {
-            if (((BytecodeParser) b).hasBciDuplication()) {
+            if (b.hasBciDuplication()) {
                 /*
                  * If we capture duplication of the bci, we don't process invoke.
                  */
