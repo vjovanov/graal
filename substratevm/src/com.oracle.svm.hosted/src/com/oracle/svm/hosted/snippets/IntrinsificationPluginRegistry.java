@@ -34,6 +34,7 @@ import org.graalvm.nativeimage.ImageSingletons;
 import com.oracle.graal.pointsto.meta.AnalysisMethod;
 import com.oracle.svm.core.util.VMError;
 import com.oracle.svm.hosted.meta.HostedMethod;
+import com.oracle.svm.hosted.phases.IntrinsifyMethodHandlesInvocationPlugin;
 
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 
@@ -96,9 +97,9 @@ public class IntrinsificationPluginRegistry {
      * analysis.
      */
     private final ConcurrentHashMap<CallSiteDescriptor, Object> globalAnalysisElements = new ConcurrentHashMap<>();
-    final ThreadLocal<ConcurrentHashMap<CallSiteDescriptor, Object>> threadLocalRegistry = new ThreadLocal<>();
+    public final ThreadLocal<ConcurrentHashMap<CallSiteDescriptor, Object>> threadLocalRegistry = new ThreadLocal<>();
 
-    AutoCloseable startThreadLocalRegistry() {
+    public AutoCloseable startThreadLocalReflectionRegistry() {
         return new AutoCloseable() {
             {
                 ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocalRegistry.set(new ConcurrentHashMap<>());
@@ -107,6 +108,19 @@ public class IntrinsificationPluginRegistry {
             @Override
             public void close() {
                 ImageSingletons.lookup(ReflectionPlugins.ReflectionPluginRegistry.class).threadLocalRegistry.remove();
+            }
+        };
+    }
+
+    public AutoCloseable startThreadLocalIntrinsificationRegistry() {
+        return new AutoCloseable() {
+            {
+                ImageSingletons.lookup(IntrinsifyMethodHandlesInvocationPlugin.IntrinsificationRegistry.class).threadLocalRegistry.set(new ConcurrentHashMap<>());
+            }
+
+            @Override
+            public void close() {
+                ImageSingletons.lookup(IntrinsifyMethodHandlesInvocationPlugin.IntrinsificationRegistry.class).threadLocalRegistry.remove();
             }
         };
     }

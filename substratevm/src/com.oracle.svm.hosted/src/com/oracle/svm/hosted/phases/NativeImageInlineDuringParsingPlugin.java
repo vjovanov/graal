@@ -180,7 +180,8 @@ public class NativeImageInlineDuringParsingPlugin implements InlineInvokePlugin 
             if (analysis && inline == null) {
                 DebugContext debug = b.getDebug();
                 try (DebugContext.Scope ignored = debug.scope("TrivialMethodDetectorAnalysis", this);
-                                AutoCloseable ignored1 = ReflectionPlugins.ReflectionPluginRegistry.startThreadLocalReflectionRegistry()) {
+                                AutoCloseable ignored1 = ReflectionPlugins.ReflectionPluginRegistry.startThreadLocalRegistry();
+                                AutoCloseable ignored2 = IntrinsifyMethodHandlesInvocationPlugin.IntrinsificationRegistry.startThreadLocalnRegistry()) {
                     TrivialMethodDetector detector = new TrivialMethodDetector(providers, ((SharedBytecodeParser) b).getGraphBuilderConfig(), b.getOptions(), b.getDebug());
                     InvocationResult newResult = detector.analyzeMethod(callSite, (AnalysisMethod) callee, args);
                     NativeImageInlineDuringParsingPlugin.support().add(callSite, newResult);

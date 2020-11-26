@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import org.graalvm.collections.Pair;
 import org.graalvm.collections.UnmodifiableEconomicMap;
 import org.graalvm.compiler.api.replacements.SnippetReflectionProvider;
 import org.graalvm.compiler.core.common.spi.MetaAccessExtensionProvider;
@@ -161,7 +160,10 @@ import jdk.vm.ci.meta.ResolvedJavaType;
  */
 public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
 
-    static class IntrinsificationRegistry extends IntrinsificationPluginRegistry {
+    public static class IntrinsificationRegistry extends IntrinsificationPluginRegistry {
+        public static AutoCloseable startThreadLocalnRegistry() {
+            return ImageSingletons.lookup(IntrinsificationRegistry.class).startThreadLocalIntrinsificationRegistry();
+        }
     }
 
     private final boolean analysis;
@@ -447,7 +449,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
          * intrinsified during analysis. Otherwise new code that was not seen as reachable by the
          * static analysis would be compiled.
          */
-        if (!analysis && intrinsificationRegistry.get(getContext(b)) != Boolean.TRUE) {
+        if (!analysis && intrinsificationRegistry.get(b.getCallingContext()) != Boolean.TRUE) {
             reportUnsupportedFeature(b, methodHandleMethod);
             return;
         }
@@ -498,7 +500,7 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
                      * Successfully intrinsified during analysis, remember that we can intrinsify
                      * when parsing for compilation.
                      */
-                    intrinsificationRegistry.add(getContext(b), Boolean.TRUE);
+                    intrinsificationRegistry.add(b.getCallingContext(), Boolean.TRUE);
                 }
             } catch (AbortTransplantException ex) {
                 /*
@@ -509,10 +511,6 @@ public class IntrinsifyMethodHandlesInvocationPlugin implements NodePlugin {
         } catch (Throwable ex) {
             throw debug.handle(ex);
         }
-    }
-
-    public List<Pair<ResolvedJavaMethod, Integer>> getContext(GraphBuilderContext b) {
-        return Collections.singletonList(Pair.create(b.getMethod(), b.bci()));
     }
 
     /**

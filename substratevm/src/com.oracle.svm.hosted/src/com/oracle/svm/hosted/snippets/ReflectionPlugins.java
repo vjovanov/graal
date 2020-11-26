@@ -63,8 +63,8 @@ import jdk.vm.ci.meta.ResolvedJavaType;
 public class ReflectionPlugins {
 
     public static class ReflectionPluginRegistry extends IntrinsificationPluginRegistry {
-        public static AutoCloseable startThreadLocalReflectionRegistry() {
-            return ImageSingletons.lookup(ReflectionPluginRegistry.class).startThreadLocalRegistry();
+        public static AutoCloseable startThreadLocalRegistry() {
+            return ImageSingletons.lookup(ReflectionPluginRegistry.class).startThreadLocalReflectionRegistry();
         }
     }
 
