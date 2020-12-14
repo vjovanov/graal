@@ -57,6 +57,9 @@ import com.oracle.svm.jvmtiagentbase.jvmti.JvmtiInterface;
  */
 public final class Support {
 
+    private static final int JNI_TRUE = 1;
+    private static final int JNI_FALSE = 0;
+
     public static boolean isInitialized() {
         boolean initialized = jvmtiEnv.isNonNull();
         assert initialized == jniFunctions.isNonNull();
@@ -181,23 +184,6 @@ public final class Support {
         return handlePtr.read();
     }
 
-    public static byte getByteArgument(int slot) {
-        CIntPointer valuePtr = StackValue.get(CIntPointer.class);
-        if (jvmtiFunctions().GetLocalInt().invoke(jvmtiEnv(), nullHandle(), 0, slot, valuePtr) != JvmtiError.JVMTI_ERROR_NONE) {
-            return 0;
-        }
-        assert (byte) valuePtr.read() == valuePtr.read();
-        return (byte) valuePtr.read();
-    }
-
-    public static boolean getBooleanArgument(int slot) {
-        CIntPointer valuePtr = StackValue.get(CIntPointer.class);
-        if (jvmtiFunctions().GetLocalInt().invoke(jvmtiEnv(), nullHandle(), 0, slot, valuePtr) != JvmtiError.JVMTI_ERROR_NONE) {
-            return false;
-        }
-        assert valuePtr.read() == JNI_TRUE || valuePtr.read() == JNI_FALSE;
-        return valuePtr.read() == JNI_TRUE;
-    }
 
     public static JNIObjectHandle getObjectArgument(int slot) {
         return getObjectArgument(0, slot);

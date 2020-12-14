@@ -647,14 +647,13 @@ final class BreakpointInterceptor {
 
         // Reuse verifyForName
         // CallerClass is always java.lang.ClassLoader, we only check the defined class
-        boolean allowed = (accessVerifier == null || accessVerifier.verifyForName(jni, nullHandle(), definedClassName, JNIObjectHandles::nullHandle));
         Object result = false;
         boolean justAdded = definedClasses.add(definedClassName);
         if (isDynamicallyGenerated) {
             if (!justAdded) {
                 unsupportedExceptions.add("Class " + definedClassName + " has been defined before. Multiple definitions are not supported.\n" +
                                 AbstractDynamicClassGenerationSupport.getStackTrace(jni).toString());
-                return allowed;
+                return true;
             }
             // Check the caller's protectionDomain is null, otherwise don't support
             String caller = getMethodFullNameAtFrame(jni, 1);
@@ -669,29 +668,27 @@ final class BreakpointInterceptor {
                                         "Please try to use java.lang.ClassLoader.defineClass(String name, byte[] b, int off, int len) if possible.\n" +
                                         AbstractDynamicClassGenerationSupport.getStackTrace(jni).toString());
                     }
-                    return allowed;
+                    return true;
                 }
             } else {
                 unsupportedExceptions.add("Don't support defineClass with ProtectionDomain parameter in native image.  " +
                                 "Please try to use java.lang.ClassLoader.defineClass(String name, byte[] b, int off, int len) if possible.\n" +
                                 AbstractDynamicClassGenerationSupport.getStackTrace(jni).toString());
-                return allowed;
+                return true;
             }
-            if (allowed) {
-                // Verify if defineClass succeeds
-                // As we hook on postDefineClass method which is the last step of defineClass, so if
-                // it can execute successfully, the whole defineClass method can execute
-                // successfully
-                JNIValue args = StackValue.get(2, JNIValue.class);
-                args.addressOf(0).setObject(getObjectArgument(1));
-                args.addressOf(1).setObject(getObjectArgument(2));
-                jniFunctions().getCallVoidMethodA().invoke(jni, self, bp.method, args);
-                if (clearException(jni)) {
-                    // No need to proceed if any exception happens
-                    result = false;
-                } else {
-                    result = true;
-                }
+            // Verify if defineClass succeeds
+            // As we hook on postDefineClass method which is the last step of defineClass, so if
+            // it can execute successfully, the whole defineClass method can execute
+            // successfully
+            JNIValue args = StackValue.get(2, JNIValue.class);
+            args.addressOf(0).setObject(getObjectArgument(1));
+            args.addressOf(1).setObject(getObjectArgument(2));
+            jniFunctions().getCallVoidMethodA().invoke(jni, self, bp.method, args);
+            if (clearException(jni)) {
+                // No need to proceed if any exception happens
+                result = false;
+            } else {
+                result = true;
             }
             try {
                 JNIObjectHandle callerClass = getDirectCallerClass();
@@ -699,17 +696,12 @@ final class BreakpointInterceptor {
                                 definedClassName, traceWriter, agent);
                 dynamicSupport.dumpDefinedClass();
                 dynamicSupport.traceReflects(result);
-                if (!allowed) {
-                    try (CCharPointerHolder message = toCString(NativeImageAgent.MESSAGE_PREFIX + "configuration does not permit access to class: " + definedClassName)) {
-                        jniFunctions().getThrowNew().invoke(jni, agent.handles().javaLangClassNotFoundException, message.get());
-                    }
-                }
-                return allowed;
+                return true;
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         } else {
-            return allowed;
+            return true;
         }
     }
 
