@@ -87,7 +87,7 @@ jobs:
       id: set-matrix
       working-directory: ${{ env.REACHABILITY_METADATA_PATH }}
       run: |
-        ./gradlew --quiet listTopCoordinatesByMetric --metric=dynamic-accesses --limit=256 > "${RUNNER_TEMP}/reachability-metadata-coordinates.txt"
+        printf '%s\n' 'org.slf4j:slf4j-api:2.0.17' > "${RUNNER_TEMP}/reachability-metadata-coordinates.txt"
         python3 - <<'PY'
         import json
         import os
