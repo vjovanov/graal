@@ -245,7 +245,7 @@ jobs:
             extra_options=(-Ptck.layered.deleteDedicatedLayerAfterTest=true)
           else
             task=testSharedLayer
-            extra_options=(-Ptck.excludedCoordinatesFile=tests/tck-build-logic/src/main/resources/layered-test-exclusions.txt)
+            extra_options=(-Ptck.excludedCoordinatesFile=tests/tck-build-logic/src/main/resources/shared-layered-test-exclusions.txt)
           fi
           result=0
           for coordinate in $(jq -r '.[]' <<< "${COORDINATES}"); do
